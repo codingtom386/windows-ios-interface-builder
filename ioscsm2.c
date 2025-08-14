@@ -1,565 +1,504 @@
-/*#include <windows.h> // °üº¬ËùÓĞ Win32 API º¯ÊıºÍºê
-#include <windowsx.h> // ÓÃÓÚ GET_X_LPARAM, GET_Y_LPARAM
-#include <stdio.h>   // ÓÃÓÚ sprintf, swprintf
-#include <string.h>  // ÓÃÓÚ wcstombs_s
-#include <stdlib.h>  // ÓÃÓÚ _wtoi (Wide char to int)
-#include <math.h>    // For round
+#define UNICODE     // Force Unicode for Win32 API
+#define _UNICODE    // Force Unicode for C Runtime Library
 
-
-// #include <locale.h>  // ÒÆ³ı£º²»ÔÙĞèÒª setlocale
-
-// --- È«¾Ö±äÁ¿ºÍºê¶¨Òå ---
-// ´°¿ÚÀàÃûºÍ´°¿Ú±êÌâ
-#define MAIN_WINDOW_CLASS_NAME TEXT("Win32iOSUIBuilderClass")
-#define MAIN_WINDOW_TITLE      TEXT("ÎÒµÄ iOS UI Builder (Win32) - ´øÊôĞÔ±à¼­")
-
-// ¿Ø¼şID¶¨Òå (ÓÃÓÚÊ¶±ğ×Ó´°¿ÚºÍ²Ëµ¥Ïî)
-#define IDC_TOOLBOX_PANEL      1001
-#define IDC_CANVAS_PANEL       1002
-#define IDC_CODE_OUTPUT_PANEL  1003 // ÏÖÔÚÕâ¸öIDÓÃÓÚ¸¸´°¿Ú¾ä±ú
-#define IDC_CODE_DISPLAY_EDIT  1004 // ´úÂëÊä³öÃæ°åÖĞµÄ EDIT ¿Ø¼ş
-
-// ¹¤¾ßÏäÖĞµÄ¿Ø¼ş°´Å¥ID
-#define IDC_TOOL_BUTTON        1101 // ¡°iOS °´Å¥¡±¹¤¾ß
-#define IDC_TOOL_TEXTFIELD     1102 // ¡°iOS ÎÄ±¾¿ò¡±¹¤¾ß
-#define IDC_TOOL_TABLEVIEW		1103 //iosÁĞ±í¹¤¾ß
-
-// ÊôĞÔÃæ°åÖĞµÄ¿Ø¼şID
-#define IDC_PROPERTIES_PANEL   1200 // ÊôĞÔÃæ°åµÄÈİÆ÷ (Ä¿Ç°Î´ÓÃ×÷¶ÀÁ¢´°¿Ú£¬¶øÊÇÓÃ×÷ÇøÓò)
-#define IDC_PROP_TYPE_LABEL    1201 // ÀàĞÍ±êÇ©
-#define IDC_PROP_TYPE_STATIC   1202 // ÀàĞÍÏÔÊ¾ (ĞŞ¸´Îª¾²Ì¬ÎÄ±¾)
-#define IDC_PROP_X_LABEL       1203 // X×ø±ê±êÇ©
-#define IDC_PROP_X_EDIT        1204 // X×ø±ê±à¼­¿ò
-#define IDC_PROP_Y_LABEL       1205 // Y×ø±ê±êÇ©
-#define IDC_PROP_Y_EDIT        1206 // Y×ø±ê±à¼­¿ò
-#define IDC_PROP_WIDTH_LABEL   1207 // ¿í¶È±êÇ©
-#define IDC_PROP_WIDTH_EDIT    1208 // ¿í¶È±à¼­¿ò
-#define IDC_PROP_HEIGHT_LABEL  1209 // ¸ß¶È±êÇ©
-#define IDC_PROP_HEIGHT_EDIT   1210 // ¸ß¶È±à¼­¿ò
-#define IDC_PROP_TEXT_LABEL    1211 // ÎÄ±¾±êÇ© (ÖÇÄÜÇĞ»»Îª¡°±êÌâ¡±¡¢¡°Õ¼Î»·û¡±µÈ)
-#define IDC_PROP_TEXT_EDIT     1212 // ÎÄ±¾±à¼­¿ò
-#define IDC_PROP_CONFIRM_BUTTON 1213 // ĞÂÔö£ºÈ·¶¨°´Å¥
-
-// ĞÂÔöÊôĞÔ¿Ø¼şID
-#define IDC_PROP_BG_R_LABEL    1214
-#define IDC_PROP_BG_R_EDIT     1215
-#define IDC_PROP_BG_G_EDIT     1216
-#define IDC_PROP_BG_B_EDIT     1217
-
-#define IDC_PROP_TEXT_R_LABEL  1218
-#define IDC_PROP_TEXT_R_EDIT   1219
-#define IDC_PROP_TEXT_G_EDIT   1220
-#define IDC_PROP_TEXT_B_EDIT   1221
-
-#define IDC_PROP_FONT_SIZE_LABEL 1222
-#define IDC_PROP_FONT_SIZE_EDIT  1223
-
-
-// Éú³ÉµÄ iOS UI ÔªËØµÄ»ùID (ÓÃÓÚÔÚ»­²¼ÉÏÊ¶±ğ)
-#define IDC_GENERATED_UI_BASE  2000
-
-// ¶¨ÒåÔ­Ê¼»­²¼³ß´ç£¬ÓÃÓÚ±ÈÀı¼ÆËã
-#define CANVAS_INITIAL_WIDTH  393
-#define CANVAS_INITIAL_HEIGHT 852
-const double CANVAS_ASPECT_RATIO = (double)CANVAS_INITIAL_WIDTH / CANVAS_INITIAL_HEIGHT; // Width / Height
-
-// ¶¨ÒåÒ»¸ö½á¹¹ÌåÀ´´æ´¢»­²¼ÉÏ·ÅÖÃµÄ iOS UI ÔªËØµÄĞÅÏ¢
-
-typedef struct {
-	int id;           // ¿Ø¼şµÄÎ¨Ò»ID (ÓÃÓÚÄÚ²¿Ê¶±ğ£¬²»ÊÇObjective-C´úÂëÖĞµÄID)
-	WCHAR type[50];   // ¿Ø¼şÀàĞÍ (e.g., L"Button", L"TextField", L"TableView")
-
-	// Position and size (always present for any element, no separate BOOL needed for visibility)
-	int x, y, width, height;
-	int original_x, original_y, original_width, original_height;
-
-	// Unified text field for title, placeholder, etc.
-	WCHAR text[256];
-	BOOL hasText;     // Flag: Does this element have a 'text' property?
-
-	// Background Color
-	int bgColorR, bgColorG, bgColorB;
-	BOOL hasBgColor;  // Flag: Does this element have a background color property?
-
-	// Text Color
-	int textColorR, textColorG, textColorB;
-	BOOL hasTextColor; // Flag: Does this element have a text color property?
-
-	// Font Size
-	float fontSize;
-
-	// Slider Specific Properties
-	float minValue;
-	BOOL hasMinValue; // Flag: Does this element have a min value property?
-	float maxValue;
-	BOOL hasMaxValue; // Flag: Does this element have a max value property?
-	float currentValue;
-	BOOL hasCurrentValue; // Flag: Does this element have a current value property?
-
-	// TableView Specific Properties
-	int rowHeight;
-	BOOL hasRowHeight; // Flag: Does this element have a row height property?
-
-	// Pointer to its definition for type-specific behavior (drawFunc, generateCodeFunc)
-	struct UIElementDefinition* definition;
-
-} iOSUIElement;
-
-typedef struct UIElementDefinition {
-	WCHAR typeName[50];
-	int defaultWidth;
-	int defaultHeight;
-
-	// Pointers to functions that handle type-specific behavior
-	void (*initDefaultDataFunc)(iOSUIElement* element);
-	void (*drawFunc)(HDC hdc, iOSUIElement* element);
-	void (*generateCodeFunc)(WCHAR* codeBuffer, size_t bufferSize, iOSUIElement* element);
-
-} UIElementDefinition;
-
-// È«¾ÖÊı×éÀ´´æ´¢»­²¼ÉÏµÄ iOS UI ÔªËØ
-#define MAX_UI_ELEMENTS 100 // ×î´óÖ§³ÖµÄ UI ÔªËØÊıÁ¿
-iOSUIElement g_iOSUIElements[MAX_UI_ELEMENTS];
-int g_iOSUIElementCount = 0; // µ±Ç°ÒÑ·ÅÖÃµÄ UI ÔªËØÊıÁ¿
-// µ±Ç°Ñ¡ÖĞµÄ UI ÔªËØË÷Òı (-1 ±íÊ¾Î´Ñ¡ÖĞ)
-int g_selectedElementIndex = -1;
-
-// È«¾Ö HWNDs£¬ÓÃÓÚÔÚ²»Í¬º¯ÊıÖĞ·ÃÎÊÊôĞÔÃæ°åµÄ¿Ø¼şºÍÖ÷Ãæ°å
-HWND g_hPropTypeStatic;
-HWND g_hPropXEdit, g_hPropYEdit, g_hPropWidthEdit, g_hPropHeightEdit, g_hPropTextEdit;
-HWND g_hPropConfirmButton; // ĞÂÔö£ºÈ·¶¨°´Å¥¾ä±ú
-
-// ĞÂÔöÊôĞÔ±à¼­¿òµÄÈ«¾Ö¾ä±ú
-HWND g_hPropBgR_Edit, g_hPropBgG_Edit, g_hPropBgB_Edit;
-HWND g_hPropTextR_Edit, g_hPropTextG_Edit, g_hPropTextB_Edit;
-HWND g_hPropFontSize_Edit;
-
-
-HWND g_hCanvasPanel; // »­²¼Ãæ°åµÄ¾ä±ú£¬·½±ãÈ«¾Ö·ÃÎÊ
-HWND g_hCodeEdit;    // ´úÂë±à¼­¿òµÄ¾ä±ú£¬·½±ãÈ«¾Ö·ÃÎÊ
-HWND hToolboxPanel;  // ¹¤¾ßÀ¸Ãæ°å¾ä±ú
-HWND hCodeOutputPanel; // ´úÂëÊä³öÃæ°å¾ä±ú (ÏÖÔÚÊÇ×Ô¶¨ÒåÀàµÄ¾ä±ú)
-
-static HBRUSH bgbrush = NULL;
-
-// --- º¯ÊıÉùÃ÷ ---
-LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-LRESULT CALLBACK CanvasPanelProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-LRESULT CALLBACK toolpanelproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam); // ¹¤¾ßÏäÃæ°åµÄ WndProc
-LRESULT CALLBACK CodePropertiesPanelProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam); // ĞÂÔö£º´úÂë/ÊôĞÔÃæ°åµÄ´°¿Ú¹ı³Ì
-
-// ¸¨Öúº¯Êı£º½« RGB ÑÕÉ«Öµ×ª»»Îª Objective-C µÄ UIColor ´úÂë×Ö·û´®
-void RgbToUIColorCode(int r, int g, int b, char* buffer, size_t bufferSize);
-
-// ¸¨Öúº¯Êı£ºÉú³É Objective-C °´Å¥´´½¨´úÂë (Êä³öµ½ WCHAR »º³åÇø)
-void GenerateObjCButtonCode(WCHAR* codeBuffer, size_t bufferSize, iOSUIElement* element);
-// ¸¨Öúº¯Êı£ºÉú³É Objective-C ÎÄ±¾¿ò´´½¨´úÂë (Êä³öµ½ WCHAR »º³åÇø)
-void GenerateObjCTextFieldCode(WCHAR* codeBuffer, size_t bufferSize, iOSUIElement* element);
-// ¸¨Öúº¯Êı£ºÉú³É Objective-C ±í¸ñÊÓÍ¼´´½¨´úÂë (Êä³öµ½ WCHAR »º³åÇø)
-void GenerateObjCTableViewCode(WCHAR* codeBuffer, size_t bufferSize, iOSUIElement* element);
-
-// ĞÂÔö¸¨Öúº¯Êı£º¸üĞÂÊôĞÔÃæ°åÏÔÊ¾
-void UpdatePropertiesPanel(void);
-// ĞÂÔö¸¨Öúº¯Êı£ºÖØĞÂÉú³ÉËùÓĞ Objective-C ´úÂë
-void RegenerateAllObjCCode(void);
-*/
-// --- WinMain º¯Êı£ºÓ¦ÓÃ³ÌĞòÈë¿Úµã ---
 #include "IOSBUILDER.h"
+#include <commdlg.h> // Common Dialogs
 
+
+// Explicitly declare global variables used from IOSBUILDER.c
+// This helps resolve 'undeclared' errors in some compiler setups,
+// even if they are already extern in the included header.
+#define ID_TOOLBOX_VSCROLL 500
+#define IDI_ICON1 2500
+
+// Menu Command IDs
+#define IDM_FILE_EXIT       40001
+#define IDM_HELP_ABOUT      40002
+#define IDM_FILE_SAVE		40003
+
+// å…¨å±€å˜é‡ï¼Œç”¨äºå­˜å‚¨è‡ªå®šä¹‰æ»šåŠ¨æ¡çš„å¥æŸ„
+HWND g_hToolboxScrollbar;
+// --- Global variables for tool panel scrolling ---
+static HWND g_hToolButtons[100];
+static int g_numToolButtons = 0;
+
+// Store the initial X and Y positions of the buttons relative to the tool panel's client area
+static int g_toolButtonOriginalX[100]; // New: Store original X position
+static int g_toolButtonOriginalY[100];
+
+static int toolPanelScrollPos = 0;
+static int toolPanelMaxScroll = 0;
+
+
+
+int currentButtonY = 50;
+
+void DeleteSelectedElement();
+
+HBRUSH butbackbr = NULL;
+
+int g_scrollPos = 0;
+
+void SaveFile(HWND hwnd) {
+    OPENFILENAME ofn;
+    wchar_t szFile[MAX_PATH] = L"";
+
+    ZeroMemory(&ofn, sizeof(ofn));
+
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = hwnd;
+    ofn.lpstrFile = szFile;
+    ofn.nMaxFile = sizeof(szFile);
+    ofn.lpstrFilter = L"objective-cæ–‡ä»¶(*.m)\0*.m\0æ‰€æœ‰æ–‡ä»¶ (*.*)\0*.*\0";
+    ofn.nFilterIndex = 1;
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT;
+    ofn.lpstrDefExt = L"m";
+
+    if (GetSaveFileName(&ofn) == TRUE) {
+        HANDLE hFile = CreateFile(
+                           ofn.lpstrFile,
+                           GENERIC_WRITE,
+                           0,
+                           NULL,
+                           CREATE_ALWAYS,
+                           FILE_ATTRIBUTE_NORMAL,
+                           NULL
+                       );
+
+        if (hFile != INVALID_HANDLE_VALUE) {
+            // å†™å…¥ UTF-8 BOM
+            unsigned char bom[] = {0xEF, 0xBB, 0xBF};
+            DWORD dwBytesWritten = 0;
+            WriteFile(hFile, bom, sizeof(bom), &dwBytesWritten, NULL);
+
+            // å°† Unicode å­—ç¬¦ä¸²è½¬æ¢ä¸º UTF-8
+            int nBytes = WideCharToMultiByte(CP_UTF8, 0, generatedCodeBuffer, -1, NULL, 0, NULL, NULL);
+            char* pUTF8 = (char*)malloc(nBytes);
+            if (pUTF8) {
+                WideCharToMultiByte(CP_UTF8, 0, generatedCodeBuffer, -1, pUTF8, nBytes, NULL, NULL);
+                WriteFile(hFile, pUTF8, nBytes - 1, &dwBytesWritten, NULL); // nBytes-1 æ˜¯ä¸ºäº†ä¸å†™å…¥ç»ˆæ­¢ç¬¦
+                free(pUTF8);
+            }
+            
+            MessageBox(hwnd, L"æ–‡ä»¶å·²æˆåŠŸä¿å­˜ï¼", L"ä¿å­˜", MB_OK | MB_ICONINFORMATION);
+            CloseHandle(hFile);
+        } else {
+            MessageBox(hwnd, L"æ— æ³•åˆ›å»ºæ–‡ä»¶å¥æŸ„ã€‚", L"é”™è¯¯", MB_OK | MB_ICONERROR);
+        }
+    }
+}
+HMENU CreateMainMenu(void) {
+	HMENU hMenu = CreateMenu();
+	HMENU hFilePopup = CreatePopupMenu();
+	HMENU hHelpPopup = CreatePopupMenu();
+
+	// åˆ›å»ºâ€œæ–‡ä»¶â€èœå•
+	AppendMenu(hFilePopup, MF_STRING, IDM_FILE_SAVE, L"&ä¿å­˜");
+
+	AppendMenu(hFilePopup, MF_STRING, IDM_FILE_EXIT, L"&é€€å‡º");
+
+	// åˆ›å»ºâ€œå¸®åŠ©â€èœå•
+	AppendMenu(hHelpPopup, MF_STRING, IDM_HELP_ABOUT, L"&å…³äº...");
+
+	// å°†å­èœå•é™„åŠ åˆ°ä¸»èœå•
+	AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hFilePopup, L"&æ–‡ä»¶");
+	AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hHelpPopup, L"&å¸®åŠ©");
+
+	return hMenu;
+}
+
+// Helper function to move all tool buttons based on the current scroll position
+void MoveToolButtons(HWND hwndToolPanel) {
+	for (int i = 0; i < g_numToolButtons; i++) {
+		if (g_hToolButtons[i] != NULL) {
+			// Calculate new Y position based on original Y and current scroll position
+			int newY = g_toolButtonOriginalY[i] - toolPanelScrollPos;
+
+			// Use the stored original X position, which is already relative to the tool panel's client area.
+			int newX = g_toolButtonOriginalX[i];
+
+			// Get current button size (width and height) - these don't change for these fixed-size buttons.
+			const int buttonWidth = 160;
+			const int buttonHeight = 40;
+
+			// Move the button to its new calculated Y position, using its original X
+			MoveWindow(g_hToolButtons[i], newX, newY,
+			           buttonWidth, buttonHeight, TRUE);
+		}
+	}
+}
+void movecode(HWND hwnd) {
+	int count = 0;
+	for (idclist i = IDC_PROP_TYPE; i < IDC_COUNT; i++) {
+		count = i - IDC_PROP_TYPE;
+		int newY = labels[count].y - g_scrollPos;
+
+		// Use the stored original X position, which is already relative to the tool panel's client area.
+		int newX = labels[count].lx;
+
+		// Get current button size (width and height) - these don't change for these fixed-size buttons.
+		const int buttonWidth = labelWidth;
+		const int buttonHeight = controlHeight;
+
+		// Move the button to its new calculated Y position, using its original X
+		MoveWindow(labels[count].labelh, newX, newY,
+		           buttonWidth, buttonHeight, TRUE);
+
+	}
+	count = 0;
+	for (idelist j = IDE_PROP_TYPE; j < IDE_COUNT; j++) {
+		count = j - IDE_PROP_TYPE;
+		int newY = edits[count].y - g_scrollPos;
+
+		// Use the stored original X position, which is already relative to the tool panel's client area.
+		int newX = edits[count].x;
+
+		// Get current button size (width and height) - these don't change for these fixed-size buttons.
+		const int buttonWidth = edits[count].width;
+		const int buttonHeight = controlHeight;
+
+		// Move the button to its new calculated Y position, using its original X
+		MoveWindow(edits[count].thing, newX, newY,
+		           buttonWidth, buttonHeight, TRUE);
+
+	}
+	MoveWindow(g_hPropConfirmButton, panelPadding + labelWidth + colSpacing, currY + 10 - g_scrollPos, 80, 30, TRUE);
+	InvalidateRect(hwnd, NULL, TRUE);
+}
+
+
+
+
+
+// --- WinMain Function: Application Entry Point ---
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-	WNDCLASSEX wc = {0}; // Ö÷´°¿ÚÀà½á¹¹Ìå
-	WNDCLASSEX wcCanvas = {0}; // »­²¼Ãæ°å´°¿ÚÀà½á¹¹Ìå
-	WNDCLASSEX wcTool = {0}; // ¹¤¾ßÏäÃæ°å
-	WNDCLASSEX wcCodeProp = {0}; // ĞÂÔö£º´úÂë/ÊôĞÔÃæ°å´°¿ÚÀà½á¹¹Ìå
+	WNDCLASSEX wc = {0};
+	WNDCLASSEX wcCanvas = {0};
+	WNDCLASSEX wcTool = {0};
+	WNDCLASSEX wcCodeProp = {0};
 
-	MSG msg;             // ÏûÏ¢½á¹¹Ìå
+	MSG msg;
 
-	// 1. ×¢²áÖ÷´°¿ÚÀà
+	/*LoadDarkModeApis();
+
+	// å¦‚æœå‡½æ•°åŠ è½½æˆåŠŸï¼Œå¼ºåˆ¶å¯ç”¨æš—é»‘æ¨¡å¼
+	if (pSetPreferredAppMode) {
+		pSetPreferredAppMode(PreferredAppMode_ForceDark);
+	}*/
+
+	// 1. Register main window class
 	wc.style = CS_HREDRAW | CS_VREDRAW;
 	wc.cbSize        = sizeof(WNDCLASSEX);
 	wc.lpfnWndProc   = WndProc;
 	wc.hInstance     = hInstance;
 	wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
-	wc.hbrBackground = CreateSolidBrush(RGB(66, 66, 66)); // Ç³»ÒÉ«±³¾°
+	wc.hIcon = LoadIcon(wc.hInstance, MAKEINTRESOURCE (IDI_ICON1));
+	wc.hbrBackground = CreateSolidBrush(RGB(17, 17, 17)); // Main window background color
 	wc.lpszClassName = MAIN_WINDOW_CLASS_NAME;
 
 	if (!RegisterClassEx(&wc)) {
-		MessageBox(NULL, TEXT("Ö÷´°¿ÚÀà×¢²áÊ§°Ü!"), TEXT("´íÎó"), MB_ICONERROR | MB_OK);
+		MessageBox(NULL, TEXT("ä¸»çª—å£ç±»æ³¨å†Œå¤±è´¥!"), TEXT("é”™è¯¯"), MB_ICONERROR | MB_OK);
 		return 0;
 	}
 
-	// 2. ×¢²á»­²¼Ãæ°å´°¿ÚÀà (ĞèÒª×Ô¶¨Òå»æÖÆ)
-	wcCanvas.style = CS_HREDRAW | CS_VREDRAW;
+	// 2. Register canvas panel window class (requires custom drawing)
+	wcCanvas.style = CS_HREDRAW | CS_VREDRAW; // HREDRAW | VREDRAW for redraw on size change (though canvas is fixed)
 	wcCanvas.cbSize        = sizeof(WNDCLASSEX);
-	wcCanvas.lpfnWndProc   = CanvasPanelProc; // Ê¹ÓÃ×Ô¶¨ÒåµÄ´°¿Ú¹ı³Ìº¯Êı
+	wcCanvas.lpfnWndProc   = CanvasPanelProc;
 	wcCanvas.hInstance     = hInstance;
 	wcCanvas.hCursor       = LoadCursor(NULL, IDC_ARROW);
-	wcCanvas.hbrBackground = (HBRUSH)GetStockObject(GRAY_BRUSH); // °×É«±³¾°
-	wcCanvas.lpszClassName = TEXT("CanvasPanelClass"); // ×Ô¶¨Òå»­²¼ÀàÃû
+	wcCanvas.hbrBackground = CreateSolidBrush(RGB(30, 30, 30)); // Canvas background color
+	wcCanvas.lpszClassName = TEXT("CanvasPanelClass");
 
 	if (!RegisterClassEx(&wcCanvas)) {
-		MessageBox(NULL, TEXT("»­²¼Ãæ°åÀà×¢²áÊ§°Ü!"), TEXT("´íÎó"), MB_ICONERROR | MB_OK);
+		MessageBox(NULL, TEXT("ç”»å¸ƒé¢æ¿ç±»æ³¨å†Œå¤±è´¥!"), TEXT("é”™è¯¯"), MB_ICONERROR | MB_OK);
 		return 0;
 	}
 
-	// 3. ×¢²á¹¤¾ßÏäÃæ°å´°¿ÚÀà (Ö÷ÒªÓÃÓÚ¹ÜÀíÆä×Ó¿Ø¼ş£¬WM_COMMAND »á×ª·¢µ½¸¸´°¿Ú)
+	// 3. Register toolbox panel window class (mainly for managing its child controls, WM_COMMAND will be forwarded to parent)
 	wcTool.cbSize        = sizeof(WNDCLASSEX);
-	wcTool.lpfnWndProc   = toolpanelproc; // Ê¹ÓÃ×Ô¶¨ÒåµÄ´°¿Ú¹ı³Ìº¯Êı£¬ÓÃÓÚ´¦ÀíÆäÄÚ²¿°´Å¥µã»÷
+	wcTool.lpfnWndProc   = toolpanelproc;
 	wcTool.hInstance     = hInstance;
 	wcTool.hCursor       = LoadCursor(NULL, IDC_ARROW);
-	wcTool.hbrBackground = CreateSolidBrush(RGB(66, 66, 66)); // »ÒÉ«±³¾°
-	wcTool.lpszClassName = TEXT("ToolPanelClass"); // ×Ô¶¨Òå¹¤¾ßÏäÀàÃû
+	wcTool.hbrBackground = CreateSolidBrush(RGB(20, 20, 20)); // Toolbox background color
+	wcTool.lpszClassName = TEXT("ToolPanelClass");
 
 	if (!RegisterClassEx(&wcTool)) {
-		MessageBox(NULL, TEXT("¹¤¾ßÀ¸Àà×¢²áÊ§°Ü!"), TEXT("´íÎó"), MB_ICONERROR | MB_OK);
+		MessageBox(NULL, TEXT("å·¥å…·æ ç±»æ³¨å†Œå¤±è´¥!"), TEXT("é”™è¯¯"), MB_ICONERROR | MB_OK);
 		return 0;
 	}
 
-	// 4. ĞÂÔö£º×¢²á´úÂë/ÊôĞÔÃæ°å´°¿ÚÀà
+	// 4. Register code/properties panel window class
 	wcCodeProp.cbSize        = sizeof(WNDCLASSEX);
-	wcCodeProp.lpfnWndProc   = CodePropertiesPanelProc; // Ê¹ÓÃ×Ô¶¨ÒåµÄ´°¿Ú¹ı³Ìº¯Êı
+	wcCodeProp.lpfnWndProc   = CodePropertiesPanelProc;
 	wcCodeProp.hInstance     = hInstance;
 	wcCodeProp.hCursor       = LoadCursor(NULL, IDC_ARROW);
-	wcCodeProp.hbrBackground = CreateSolidBrush(RGB(66, 66, 66)); // Ç³»ÒÉ«±³¾°
-	wcCodeProp.lpszClassName = TEXT("CodePropertiesPanelClass"); // ×Ô¶¨ÒåÀàÃû
+	wcCodeProp.hbrBackground = CreateSolidBrush(RGB(20, 20, 20));
+	wcCodeProp.lpszClassName = TEXT("CodePropertiesPanelClass");
 
 	if (!RegisterClassEx(&wcCodeProp)) {
-		MessageBox(NULL, TEXT("´úÂë/ÊôĞÔÃæ°åÀà×¢²áÊ§°Ü!"), TEXT("´íÎó"), MB_ICONERROR | MB_OK);
+		MessageBox(NULL, TEXT("ä»£ç /å±æ€§é¢æ¿ç±»æ³¨å†Œå¤±è´¥!"), TEXT("é”™è¯¯"), MB_ICONERROR | MB_OK);
 		return 0;
 	}
 
-	// 5. ´´½¨Ö÷´°¿Ú
+
+
+	HMENU hMainMenu = CreateMainMenu();
+
+	// 5. Create main window
 	HWND hMainWnd = CreateWindowEx(
-	                    0,                                  // À©Õ¹´°¿ÚÑùÊ½
-	                    MAIN_WINDOW_CLASS_NAME,             // ´°¿ÚÀàÃû
-	                    MAIN_WINDOW_TITLE,                  // ´°¿Ú±êÌâ
-	                    WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, // ´°¿ÚÑùÊ½ (WS_CLIPCHILDREN ·ÀÖ¹×Ó´°¿ÚÖØ»æÊ±ÉÁË¸)
-	                    CW_USEDEFAULT, CW_USEDEFAULT,       // ³õÊ¼X, ³õÊ¼Y
-	                    1500, 932,                          // ¿í¶È, ¸ß¶È (Ê¾Àı³ß´ç)
-	                    NULL,                               // ¸¸´°¿Ú¾ä±ú (×ÀÃæ´°¿Ú)
-	                    NULL,                               // ²Ëµ¥¾ä±ú
-	                    hInstance,                          // Ó¦ÓÃ³ÌĞòÊµÀı¾ä±ú
-	                    NULL                                // ´´½¨²ÎÊı
+	                    0,
+	                    MAIN_WINDOW_CLASS_NAME,
+	                    MAIN_WINDOW_TITLE,
+	                    WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, // WS_CLIPCHILDREN prevents parent from drawing over children
+	                    CW_USEDEFAULT, CW_USEDEFAULT,
+	                    1500, 982,                          // Initial window size
+	                    NULL,
+	                    hMainMenu,
+	                    hInstance,
+	                    NULL
 	                );
 
 	if (!hMainWnd) {
-		MessageBox(NULL, TEXT("Ö÷´°¿Ú´´½¨Ê§°Ü!"), TEXT("´íÎó"), MB_ICONERROR | MB_OK);
+		MessageBox(NULL, TEXT("ä¸»çª—å£åˆ›å»ºå¤±è´¥!"), TEXT("é”™è¯¯"), MB_ICONERROR | MB_OK);
 		return 0;
 	}
 
-	// 6. ´´½¨×ÓÃæ°å£º¹¤¾ßÏä¡¢»­²¼¡¢´úÂëÊä³ö
-	// ÕâĞ©ÊÇ STATIC ¿Ø¼ş£¬×÷ÎªÈİÆ÷Ê¹ÓÃ£¬²¢ÉèÖÃ WS_BORDER ÑùÊ½ÒÔ±ãÇø·Ö
 
-	// ¹¤¾ßÏäÃæ°å (×ó²à)
+
+	// 6. Create child panels: toolbox, canvas, code output
+	// Add WS_VSCROLL to hToolboxPanel for vertical scrolling
 	hToolboxPanel = CreateWindowEx(
-	                    WS_EX_CLIENTEDGE,                   // À©Õ¹ÑùÊ½£º3D±ß¿ò
-	                    TEXT("ToolPanelClass"),             // ¿Ø¼şÀàÃû
-	                    TEXT("¿Ø¼şÀ¸"),                       // ÎÄ±¾
-	                    WS_CHILD | WS_VISIBLE | SS_CENTER,  // ×Ó´°¿Ú£¬¿É¼û£¬ÎÄ±¾¾ÓÖĞ
-	                    10, 10,                            // X, Y ×ø±ê (Ïà¶ÔÓÚÖ÷´°¿Ú)
-	                    200, 800,                           // ¿í¶È, ¸ß¶È (µ÷Õû³ß´ç)
-	                    hMainWnd,                           // ¸¸´°¿Ú¾ä±ú
-	                    (HMENU)IDC_TOOLBOX_PANEL,           // ¿Ø¼şID
-	                    hInstance,                          // Ó¦ÓÃ³ÌĞòÊµÀı¾ä±ú
-	                    NULL                                // ´´½¨²ÎÊı
+	                    WS_EX_CLIENTEDGE,                   // Sunken border
+	                    TEXT("ToolPanelClass"),             // Registered class name
+	                    TEXT("æ§ä»¶æ "),                       // Window title
+	                    WS_CHILD | WS_VISIBLE | SS_CENTER | WS_VSCROLL, // Child window, visible, centered text, vertical scrollbar
+	                    10, 10,                             // X, Y position (will be overridden by WM_SIZE)
+	                    200, 800,                           // Width, Height (will be overridden by WM_SIZE)
+	                    hMainWnd,                           // Parent window
+	                    (HMENU)IDC_TOOLBOX_PANEL,           // Control ID
+	                    hInstance,                          // Application instance
+	                    NULL                                // Window creation data
 	                );
 
-	// Éè¼Æ»­²¼Ãæ°å (ÖĞ¼ä)
-	// ÕâĞ©ÊÇ³õÊ¼Öµ£¬Êµ¼ÊÏÔÊ¾Ê±»á¸ù¾İ WM_SIZE ÖĞµÄ±ÈÀıÂß¼­µ÷Õû
-	g_hCanvasPanel = CreateWindowEx( // ´æ´¢µ½È«¾Ö±äÁ¿
-	                     WS_EX_CLIENTEDGE,                   // À©Õ¹ÑùÊ½£º3D±ß¿ò
-	                     TEXT("CanvasPanelClass"),           // Ê¹ÓÃÎÒÃÇ×Ô¶¨ÒåµÄ»­²¼ÀàÃû
-	                     TEXT(""),                           // ÎŞÎÄ±¾£¬ÒòÎªÎÒÃÇÒª×Ô¼º»æÖÆÄÚÈİ
-	                     WS_CHILD | WS_VISIBLE,              // ×Ó´°¿Ú£¬¿É¼û
-	                     220, 10,                            // ³õÊ¼ X, Y ×ø±ê
-	                     CANVAS_INITIAL_WIDTH, CANVAS_INITIAL_HEIGHT, // ³õÊ¼ ¿í¶È, ¸ß¶È (»áÔÚ WM_SIZE ÖĞ°´±ÈÀıµ÷Õû)
-	                     hMainWnd,                           // ¸¸´°¿Ú¾ä±ú
-	                     (HMENU)IDC_CANVAS_PANEL,            // ¿Ø¼şID
-	                     hInstance,                          // Ó¦ÓÃ³ÌĞòÊµÀı¾ä±ú
-	                     NULL                                // ´´½¨²ÎÊı
+	// Create Canvas Panel (fixed size)
+	g_hCanvasPanel = CreateWindowEx(
+	                     WS_EX_CLIENTEDGE,                   // Extended style: sunken border
+	                     TEXT("CanvasPanelClass"),           // Registered class name
+	                     TEXT(""),                           // No title
+	                     WS_CHILD | WS_VISIBLE,              // Child window, visible
+	                     220, 10,                            // X, Y position (will be overridden by WM_SIZE)
+	                     CANVAS_INITIAL_WIDTH, CANVAS_INITIAL_HEIGHT, // Fixed width and height (will be overridden by WM_SIZE)
+	                     hMainWnd,                           // Parent window
+	                     (HMENU)IDC_CANVAS_PANEL,            // Control ID
+	                     hInstance,                          // Application instance
+	                     NULL                                // Window creation data
 	                 );
-
-	// ´úÂë/ÊôĞÔÊä³öÃæ°å (ÓÒ²à) - ÏÖÔÚÊ¹ÓÃ×Ô¶¨ÒåÀà
 	hCodeOutputPanel = CreateWindowEx(
-	                       WS_EX_CLIENTEDGE,                   // À©Õ¹ÑùÊ½£º3D±ß¿ò
-	                       TEXT("CodePropertiesPanelClass"),   // Ê¹ÓÃ×Ô¶¨ÒåÀàÃû
-	                       TEXT(""),                           // ÎŞÎÄ±¾£¬×Ó¿Ø¼ş»áÌá¹©±êÌâ
-	                       WS_CHILD | WS_VISIBLE | ES_AUTOVSCROLL,            // ×Ó´°¿Ú£¬¿É¼û
-	                       930, 10,                            // X, Y ×ø±ê
-	                       550, 800,                           // ¿í¶È, ¸ß¶È (µ÷Õû³ß´ç)
-	                       hMainWnd,                           // ¸¸´°¿Ú¾ä±ú
-	                       (HMENU)IDC_CODE_OUTPUT_PANEL,       // ¿Ø¼şID
-	                       hInstance,                          // Ó¦ÓÃ³ÌĞòÊµÀı¾ä±ú
-	                       NULL                                // ´´½¨²ÎÊı
+	                       WS_EX_CLIENTEDGE,
+	                       TEXT("CodePropertiesPanelClass"),
+	                       TEXT(""),
+	                       WS_CHILD | WS_VISIBLE | ES_AUTOVSCROLL,
+	                       930, 10,                            // X, Y position (will be overridden by WM_SIZE)
+	                       550, 800,                           // Width, Height (will be overridden by WM_SIZE)
+	                       hMainWnd,
+	                       (HMENU)IDC_CODE_OUTPUT_PANEL,
+	                       hInstance,
+	                       NULL
 	                   );
 
-	// ×¢Òâ£º´úÂëÊä³öÃæ°åÄÚµÄ×Ó¿Ø¼ş£¨g_hCodeEdit, g_hPropXEdit µÈ£©µÄ´´½¨
-	// ÏÖÔÚÒÆµ½ÁË CodePropertiesPanelProc µÄ WM_CREATE ÏûÏ¢´¦ÀíÖĞ¡£
-	// ÕâÑù¿ÉÒÔÈ·±£ÕâĞ©¿Ø¼şÊÇ hCodeOutputPanel µÄ×Ó´°¿Ú¡£
+// ... åœ¨åˆ›å»ºå…¶ä»–å­çª—å£ä¹‹åï¼Œåˆ›å»ºåˆ†å‰²æ¡
+	// Create the background brush for the properties panel in WinMain,
+	// this brush is specifically used in WM_CTLCOLORSTATIC/EDIT of CodePropertiesPanelProc
+	g_hbrPropertiesPanelBackground = CreateSolidBrush(RGB(30, 30, 30));
+	if (g_hbrPropertiesPanelBackground == NULL) {
+		MessageBox(NULL, TEXT("å±æ€§é¢æ¿èƒŒæ™¯ç”»åˆ·åˆ›å»ºå¤±è´¥!"), TEXT("é”™è¯¯"), MB_ICONERROR | MB_OK);
+		return 0;
+	}
+	butbackbr = CreateSolidBrush(RGB(20, 20, 20));
+	SetWindowTheme(hCodeOutputPanel, L"DarkMode_Explorer", nullptr);
+	SetWindowTheme(hToolboxPanel, L"DarkMode_Explorer", nullptr);
+	// 7. Add "draggable" control buttons to the toolbox panel (currently simulated by clicks)
+	// Store HWNDs and original Y positions for scrolling
+	int currentButtonY = 50;
+	const int buttonHeight = 40;
+	const int buttonSpacing = BUTTON_SPACING; // Using the macro now
+	const int buttonWidth = 160;
+	const int buttonX = 29; // This is the client X position relative to hToolboxPanel
 
-	// 7. ÔÚ¹¤¾ßÏäÃæ°åÖĞÌí¼Ó¿É¡°ÍÏ×§¡±µÄ¿Ø¼ş°´Å¥ (Ä¿Ç°ÊÇµã»÷Ä£Äâ)
-	CreateWindowEx(
-	    0,                                  // À©Õ¹ÑùÊ½
-	    TEXT("BUTTON"),                     // ¿Ø¼şÀàÃû
-	    TEXT("iOS °´Å¥"),                     // °´Å¥ÎÄ±¾
-	    WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, // ×Ó´°¿Ú£¬¿É¼û£¬ÆÕÍ¨°´Å¥
-	    20, 50,                             // X, Y ×ø±ê (Ïà¶ÔÓÚ hToolboxPanel)
-	    160, 40,                            // ¿í¶È, ¸ß¶È
-	    hToolboxPanel,                      // ¸¸´°¿Ú¾ä±ú (¹¤¾ßÏäÃæ°å)
-	    (HMENU)IDC_TOOL_BUTTON,             // ¿Ø¼şID
-	    hInstance,                          // Ó¦ÓÃ³ÌĞòÊµÀı¾ä±ú
-	    NULL                                // ´´½¨²ÎÊı
-	);
+	// For each button, create it and store its HWND and original Y position
 
-	CreateWindowEx(
-	    0,
-	    TEXT("BUTTON"),
-	    TEXT("iOS ÎÄ±¾¿ò"),
-	    WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-	    20, 100,
-	    160, 40,
-	    hToolboxPanel,
-	    (HMENU)IDC_TOOL_TEXTFIELD,
-	    hInstance,
-	    NULL
-	);
+	g_numToolButtons = 0;
+	for (int i = 0; i < g_numElementDefinitions; ++i) {
+		g_hToolButtons[g_numToolButtons] = CreateWindowEx(
+		                                       WS_EX_CLIENTEDGE,
+		                                       TEXT("BUTTON"),
+		                                       g_elementDefinitions[i].typeName,
+		                                       WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+		                                       buttonX, currentButtonY,
+		                                       buttonWidth, buttonHeight,
+		                                       hToolboxPanel,
+		                                       (HMENU)MAKEINTRESOURCE(g_elementDefinitions[i].toolButtonId),
+		                                       hInstance,
+		                                       NULL
+		                                   );
 
-	CreateWindowEx(
-	    0,
-	    TEXT("BUTTON"),
-	    TEXT("iOS ±í¸ñÊÓÍ¼"),
-	    WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-	    20, 150,
-	    160, 40,
-	    hToolboxPanel,
-	    (HMENU)IDC_TOOL_TABLEVIEW,
-	    hInstance,
-	    NULL
-	);
+		// Store the original position
+		g_toolButtonOriginalX[g_numToolButtons] = buttonX;
+		g_toolButtonOriginalY[g_numToolButtons] = currentButtonY;
+
+		currentButtonY += buttonHeight + buttonSpacing;
+		g_numToolButtons++;
 
 
-	// 8. ÏÔÊ¾ºÍ¸üĞÂÖ÷´°¿Ú
+	}
+
+
+
+	// 8. Display and update main window
 	ShowWindow(hMainWnd, nCmdShow);
 	UpdateWindow(hMainWnd);
 
-	// ³õÊ¼¸üĞÂÊôĞÔÃæ°å (ÏÔÊ¾Î´Ñ¡ÖĞ×´Ì¬)
+	// Initial update of properties panel (shows unselected state)
 	UpdatePropertiesPanel();
-	// ³õÊ¼´úÂëÉú³É
+	// Initial code generation
 	RegenerateAllObjCCode();
 
 
-	// 9. ÏûÏ¢Ñ­»·
+
+	// 9. Message loop
 	while (GetMessage(&msg, NULL, 0, 0)) {
-		TranslateMessage(&msg); // ·­ÒëĞéÄâ¼üÏûÏ¢Îª×Ö·ûÏûÏ¢
-		DispatchMessage(&msg);  // ·Ö·¢ÏûÏ¢¸ø´°¿Ú¹ı³Ìº¯Êı
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
 	}
 
+	// Destroy main window, toolbox panel, and code/properties panel background brushes at the end of WinMain
+	DeleteObject(wc.hbrBackground);
+	DeleteObject(wcTool.hbrBackground);
+	DeleteObject(wcCodeProp.hbrBackground);
 
 	return (int)msg.wParam;
 }
 
-// --- ´°¿Ú¹ı³Ìº¯ÊıÊµÏÖ ---
+// --- Window Procedure function implementations ---
 
-// Ö÷´°¿Ú¹ı³Ìº¯Êı
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-	WCHAR debugMsg[256]; // ÓÃÓÚ MessageBox µÄµ÷ÊÔĞÅÏ¢
-
 	switch (msg) {
-		case WM_CREATE: {
-			if (bgbrush == NULL) {
-				bgbrush = CreateSolidBrush(RGB(66, 66, 66));
-			}
-			if (bgbrush == NULL) {
-				MessageBox(NULL, TEXT("»­Ë¢´´½¨Ê§°Ü!"), TEXT("ERROR"), MB_ICONERROR | MB_OK);
-				return 0;
-			}
-			break;
-		}
 		case WM_COMMAND: {
-			int wmId = LOWORD(wParam); // ¿Ø¼şID
-			// int wmEvent = HIWORD(wParam); // Í¨Öª´úÂë (ÏÖÔÚÖ»ÔÚÈ·¶¨°´Å¥Ê±´¦Àí£¬²»ĞèÒªÇø·ÖÍ¨ÖªÂë)
-			// HWND hCtrl = (HWND)lParam; // ¿Ø¼ş¾ä±ú
+			int wmId = LOWORD(wParam);
+			HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE);
 
-			// ´¦ÀíÊôĞÔ±à¼­¿òµÄÍ¨Öª (ÏÖÔÚÖ»ÔÚµã»÷È·¶¨°´Å¥Ê±´¦Àí)
-			if (wmId == IDC_PROP_CONFIRM_BUTTON) {
-				if (g_selectedElementIndex != -1) {
-					iOSUIElement *element = &g_iOSUIElements[g_selectedElementIndex];
-					WCHAR buffer[256]; // ÁÙÊ±»º³åÇø
-					int value;
-					float floatValue;
+			// Handle tool button clicks
+			for (int i = 0; i < g_numElementDefinitions; i++) {
+				if (wmId == g_elementDefinitions[i].toolButtonId) { // Check if it's a tool button
+					if (g_iOSUIElementCount < MAX_UI_ELEMENTS) {
+						iOSUIElement* newElement = &g_iOSUIElements[g_iOSUIElementCount];
+						ZeroMemory(newElement, sizeof(iOSUIElement)); // Clear new element memory
 
-					// ¶ÁÈ¡ X ×ø±ê
-					GetWindowTextW(g_hPropXEdit, buffer, _countof(buffer));
-					value = _wtoi(buffer);
-					element->x = value;
+						newElement->id = IDC_GENERATED_UI_BASE + g_iOSUIElementCount; // Assign unique ID
+						wcscpy_s(newElement->type, _countof(newElement->type), g_elementDefinitions[i].typeName);
+						newElement->definition = &g_elementDefinitions[i]; // Link to its definition
 
-					// ¶ÁÈ¡ Y ×ø±ê
-					GetWindowTextW(g_hPropYEdit, buffer, _countof(buffer));
-					value = _wtoi(buffer);
-					element->y = value;
+						// Initialize default data using the function pointer
+						if (g_elementDefinitions[i].initDefaultDataFunc) {
+							g_elementDefinitions[i].initDefaultDataFunc(newElement);
+						}
 
-					// ¶ÁÈ¡ Width
-					GetWindowTextW(g_hPropWidthEdit, buffer, _countof(buffer));
-					value = _wtoi(buffer);
-					element->width = value;
+						// Set element's current position and size to its original (fixed) values
+						newElement->x = newElement->original_x;
+						newElement->y = newElement->original_y;
+						newElement->width = newElement->original_width; // Use original_width/height directly for fixed size
+						newElement->height = newElement->original_height;
 
-					// ¶ÁÈ¡ Height
-					GetWindowTextW(g_hPropHeightEdit, buffer, _countof(buffer));
-					value = _wtoi(buffer);
-					element->height = value;
+						g_iOSUIElementCount++;
+						g_selectedElementIndex = g_iOSUIElementCount - 1; // Select the newly added element
 
-					// ¶ÁÈ¡ Text (°´Å¥±êÌâ»òÎÄ±¾¿òÄÚÈİ)
-					GetWindowTextW(g_hPropTextEdit, buffer, _countof(buffer));
-					wcscpy_s(element->text, _countof(element->text), buffer);
-
-					// ¶ÁÈ¡±³¾°ÑÕÉ« (R, G, B)
-					GetWindowTextW(g_hPropBgR_Edit, buffer, _countof(buffer));
-					element->bgColorR = _wtoi(buffer);
-					GetWindowTextW(g_hPropBgG_Edit, buffer, _countof(buffer));
-					element->bgColorG = _wtoi(buffer);
-					GetWindowTextW(g_hPropBgB_Edit, buffer, _countof(buffer));
-					element->bgColorB = _wtoi(buffer);
-
-					// ¶ÁÈ¡ÎÄ±¾ÑÕÉ« (R, G, B)
-					GetWindowTextW(g_hPropTextR_Edit, buffer, _countof(buffer));
-					element->textColorR = _wtoi(buffer);
-					GetWindowTextW(g_hPropTextG_Edit, buffer, _countof(buffer));
-					element->textColorG = _wtoi(buffer);
-					GetWindowTextW(g_hPropTextB_Edit, buffer, _countof(buffer));
-					element->textColorB = _wtoi(buffer);
-
-					// ¶ÁÈ¡×ÖÌå´óĞ¡
-					GetWindowTextW(g_hPropFontSize_Edit, buffer, _countof(buffer));
-					// Ê¹ÓÃ _wtof ½«¿í×Ö·û¸¡µãÊı×ª»»Îª float
-					floatValue = (float)_wtof(buffer);
-					element->fontSize = floatValue;
-
-					// --- ÒÆ³ıµ¼ÖÂ bug µÄ´úÂë¿é£ºÎÄ±¾¿òÄÚÈİ¸Ä±äµÚÒ»¸ö°´Å¥ÎÄ×ÖµÄÂß¼­ ---
-					// if (wcscmp(element->type, L"TextField") == 0) {
-					//     for (int i = 0; i < g_iOSUIElementCount; i++) {
-					//         if (wcscmp(g_iOSUIElements[i].type, L"Button") == 0) {
-					//             wcscpy_s(g_iOSUIElements[i].text, _countof(g_iOSUIElements[i].text), buffer);
-					//             break;
-					//         }
-					//     }
-					// }
-					// --- ÒÆ³ı½áÊø ---
-
-					// »ñÈ¡»­²¼µ±Ç°Êµ¼Ê³ß´ç£¬ÓÃÓÚ¼ÆËã·´Ïò±ÈÀı
-					RECT currentCanvasRect;
-					GetClientRect(g_hCanvasPanel, &currentCanvasRect);
-					int currentCanvasWidth = currentCanvasRect.right;
-
-					if (currentCanvasWidth > 0) { // Avoid division by zero
-						double currentScaleForElements = (double)currentCanvasWidth / CANVAS_INITIAL_WIDTH;
-
-						// ·´Ïò¼ÆËã²¢¸üĞÂ original_x/y/width/height
-						element->original_x = (int)round(element->x / currentScaleForElements);
-						element->original_y = (int)round(element->y / currentScaleForElements);
-						element->original_width = (int)round(element->width / currentScaleForElements);
-						element->original_height = (int)round(element->height / currentScaleForElements);
+						InvalidateRect(g_hCanvasPanel, NULL, TRUE); // Redraw canvas
+						UpdatePropertiesPanel(); // Update properties panel for new element
+						RegenerateAllObjCCode(); // Regenerate code
+					} else {
+						MessageBox(hwnd, TEXT("ç”»å¸ƒå·²æ»¡ï¼Œæ— æ³•æ·»åŠ æ›´å¤šå…ƒç´ ã€‚"), TEXT("è­¦å‘Š"), MB_ICONWARNING | MB_OK);
 					}
-
-					// Ç¿ÖÆ»­²¼ÖØ»æ£¬ÏÔÊ¾ÊôĞÔ±ä»¯
-					InvalidateRect(g_hCanvasPanel, NULL, TRUE);
-
-					// ÖØĞÂÉú³É´úÂë
-					RegenerateAllObjCCode();
+					return 0; // Handled the command
 				}
 			}
+
+			if (wmId == IDC_PROP_CONFIRM_BUTTON) {
+				if (g_selectedElementIndex != -1) {
+					ReadPropertiesFromUI(&g_iOSUIElements[g_selectedElementIndex]);
+				}
+				InvalidateRect(g_hCanvasPanel, NULL, TRUE);
+				RegenerateAllObjCCode();
+			}
+
+			if (wmId == IDM_DELETE_ELEMENT) {
+
+				DeleteSelectedElement();
+
+			}
+			if (wmId == IDM_FILE_EXIT)
+				DestroyWindow(hwnd);
+			if (wmId == IDM_HELP_ABOUT)
+				MessageBox(NULL, TEXT("ios builder"), TEXT("about"), MB_OK);
+			if (wmId == IDM_FILE_SAVE)
+				SaveFile(hwnd);
+
 			break;
 		}
 		case WM_SIZE: {
-			// Adjust panel sizes on window resize
 			RECT rc;
 			GetClientRect(hwnd, &rc);
 			int newWidth = rc.right - rc.left;
 			int newHeight = rc.bottom - rc.top;
 
-			int toolboxWidth = 200; // Fixed width
-			int codePanelWidth = 550; // Fixed width for code/properties panel
-			int spacing = 10; // Spacing between panels and window edges
+			int toolboxWidth = 250;
+			int codePanelWidth = 550;
+			int spacing = 10;
 
 			int canvasX = toolboxWidth + spacing;
 			int codePanelX = newWidth - codePanelWidth - spacing;
 
-			// Move Toolbox Panel
+
 			MoveWindow(hToolboxPanel, spacing, spacing, toolboxWidth, newHeight - (2 * spacing), TRUE);
-			// Move Code Output Panel (hCodeOutputPanel)
 			MoveWindow(hCodeOutputPanel, codePanelX, spacing, codePanelWidth, newHeight - (2 * spacing), TRUE);
 
-			// Calculate the available space for the canvas panel
+			// Fixed canvas dimensions
+			int finalCanvasWidth = CANVAS_INITIAL_WIDTH;
+			int finalCanvasHeight = CANVAS_INITIAL_HEIGHT;
+
+			// Calculate available space for centering the fixed canvas
 			int canvasAvailableWidth = codePanelX - canvasX - spacing;
 			int canvasAvailableHeight = newHeight - (2 * spacing);
 
-			// Ensure minimum size
-			if (canvasAvailableWidth < 1) canvasAvailableWidth = 1;
-			if (canvasAvailableHeight < 1) canvasAvailableHeight = 1;
-
-			int finalCanvasWidth = 0;
-			int finalCanvasHeight = 0;
-
-			// Calculate dimensions based on maintaining canvas's original aspect ratio (700x800)
-			// Option 1: Constrained by available height
-			int tempWidth = (int)(canvasAvailableHeight * CANVAS_ASPECT_RATIO);
-			if (tempWidth <= canvasAvailableWidth) {
-				// Height is the limiting factor, or fits perfectly
-				finalCanvasWidth = tempWidth;
-				finalCanvasHeight = canvasAvailableHeight;
-			} else {
-				// Width is the limiting factor
-				finalCanvasWidth = canvasAvailableWidth;
-				finalCanvasHeight = (int)(canvasAvailableWidth / CANVAS_ASPECT_RATIO);
-			}
-
-			// Ensure dimensions are not zero or negative
-			if (finalCanvasWidth < 1) finalCanvasWidth = 1;
-			if (finalCanvasHeight < 1) finalCanvasHeight = 1;
-
-			// Calculate centered position within the available area for the canvas panel
+			// Calculate centered position for the fixed canvas
 			int centeredX = canvasX + (canvasAvailableWidth - finalCanvasWidth) / 2;
 			int centeredY = spacing + (canvasAvailableHeight - finalCanvasHeight) / 2;
 
-			// Move the canvas panel (g_hCanvasPanel) to its new size and centered position
+			// Ensure centered position is not negative
+			if (centeredX < canvasX) centeredX = canvasX;
+			if (centeredY < spacing) centeredY = spacing;
+
 			MoveWindow(g_hCanvasPanel, centeredX, centeredY, finalCanvasWidth, finalCanvasHeight, TRUE);
 
-			// --- ÖØÒª£º¸ù¾İĞÂµÄ»­²¼³ß´çµ÷ÕûÆäÉÏËùÓĞÔªËØµÄ³ß´çºÍÎ»ÖÃ ---
-			// ¼ÆËãµ±Ç°»­²¼Ïà¶ÔÓÚÆäÔ­Ê¼³ß´çµÄËõ·Å±ÈÀı
-			if (CANVAS_INITIAL_WIDTH > 0) { // ±ÜÃâ³ıÒÔÁã
-				double currentScale = (double)finalCanvasWidth / CANVAS_INITIAL_WIDTH;
 
-				for (int i = 0; i < g_iOSUIElementCount; i++) {
-					iOSUIElement *element = &g_iOSUIElements[i];
-					// Ê¹ÓÃÔªËØµÄ original_x/y/width/height À´¼ÆËãÆäÔÚµ±Ç°Ëõ·ÅÏÂµÄÊµ¼ÊÏÔÊ¾³ß´ç
-					element->x = (int)round(element->original_x * currentScale);
-					element->y = (int)round(element->original_y * currentScale);
-					element->width = (int)round(element->original_width * currentScale);
-					element->height = (int)round(element->original_height * currentScale);
 
-					// È·±£ÔªËØ²»»áËõĞ¡µ½¿´²»¼û
-					if (element->width < 1) element->width = 1;
-					if (element->height < 1) element->height = 1;
-				}
-				// Ç¿ÖÆ»­²¼ÖØ»æËùÓĞÔªËØ£¬¸üĞÂÆäÏÔÊ¾
-				InvalidateRect(g_hCanvasPanel, NULL, TRUE);
-				// ¸üĞÂÊôĞÔÃæ°åÒÔ·´Ó³ĞÂµÄ×ø±ê£¨ËäÈ»ÊÇ×Ô¶¯Ëõ·ÅµÄ£¬µ«Ò²ÒªÏÔÊ¾µ±Ç°Öµ£©
-				UpdatePropertiesPanel();
-				// ÖØĞÂÉú³É´úÂëÒÔÈ·±£´úÂëÖĞµÄ×ø±êÊÇ×îĞÂµÄ£¨ËäÈ»´úÂëÊÇ»ùÓÚoriginal_x£¬µ«ÎªÁËÍ³Ò»ÏÔÊ¾£©
-				RegenerateAllObjCCode();
-			}
+			// No scaling of elements needed here, as the canvas is fixed and elements use original_x/y/width/height
+			// We just need to ensure the canvas is redrawn.
+			InvalidateRect(g_hCanvasPanel, NULL, TRUE);
+			InvalidateRect(hToolboxPanel, NULL, TRUE);
+			UpdatePropertiesPanel(); // Update properties panel to reflect current state (even if no change)
+			RegenerateAllObjCCode(); // Regenerate code (might not change if elements aren't scaled, but good practice)
 
-			// Note: The child controls within hCodeOutputPanel are handled by CodePropertiesPanelProc's WM_SIZE
 			break;
 		}
 		case WM_DESTROY: {
-			if (bgbrush != NULL) {
-				DeleteObject(bgbrush);
-				bgbrush = NULL; // ·ÀÖ¹ÖØ¸´É¾³ı
+			if (g_hbrPropertiesPanelBackground != NULL) {
+				DeleteObject(g_hbrPropertiesPanelBackground);
+				g_hbrPropertiesPanelBackground = NULL;
 			}
 			PostQuitMessage(0);
 			break;
 		}
-
 		default:
 			return DefWindowProc(hwnd, msg, wParam, lParam);
 
@@ -567,80 +506,60 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	return 0;
 }
 
-// »­²¼Ãæ°åµÄ´°¿Ú¹ı³Ìº¯Êı (¸ºÔğ»æÖÆ·ÅÖÃµÄ UI ÔªËØºÍ´¦Àíµã»÷Ñ¡Ôñ¡¢ÍÏ×§¡¢Ëõ·Å)
 LRESULT CALLBACK CanvasPanelProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-	static int mouseX, mouseY; // µ±Ç°Êó±êÎ»ÖÃ
-	static BOOL isDragging = FALSE; // ÊÇ·ñÕıÔÚÍÏ×§ÔªËØ
-	static int dragOffset_X, dragOffset_Y; // ÍÏ×§Ê±Êó±êµã»÷µãÓëÔªËØ×óÉÏ½ÇµÄÆ«ÒÆ
-	static int resizeHandle = -1; // -1: ÎŞ, 0: ×óÉÏ, 1: ÓÒÉÏ, 2: ÓÒÏÂ, 3: ×óÏÂ
-	const int GRAB_AREA = 5; // ±ßÔµ²¶»ñÇøÓò´óĞ¡
-
-	WCHAR debugMsg[256]; // ÓÃÓÚ MessageBox µÄµ÷ÊÔĞÅÏ¢
+	static int mouseX, mouseY;
+	static BOOL isDragging = FALSE;
+	static int dragOffset_X, dragOffset_Y;
+	static int resizeHandle = -1;
+	const int GRAB_AREA = 5;
 
 	switch (msg) {
 		case WM_PAINT: {
 			PAINTSTRUCT ps;
 			HDC hdc = BeginPaint(hwnd, &ps);
 
-			// ±éÀú²¢»æÖÆËùÓĞÒÑ·ÅÖÃµÄ iOS UI ÔªËØ
 			for (int i = 0; i < g_iOSUIElementCount; i++) {
 				iOSUIElement *element = &g_iOSUIElements[i];
-				// »æÖÆÊ¹ÓÃ element->x/y/width/height£¬ÕâĞ©ÖµÒÑ¾­ÔÚ WM_SIZE ÖĞ±»¸üĞÂÎªµ±Ç°Ëõ·ÅºóµÄÖµ
-				RECT elementRect = {element->x, element->y, element->x + element->width, element->y + element->height};
-
-				// »æÖÆ±ß¿òºÍÌî³ä
-				HPEN hPen;
-				HBRUSH hBrush;
-
-				// ¸ù¾İÀàĞÍÑ¡ÔñÑÕÉ«ºÍ×ÖÌå
-				if (wcscmp(element->type, L"Button") == 0) {
-					hPen = CreatePen(PS_SOLID, 1, RGB(element->bgColorR, element->bgColorG, element->bgColorB)); // Ê¹ÓÃ±³¾°É«×÷Îª±ß¿òÉ«
-					hBrush = CreateSolidBrush(RGB(element->bgColorR, element->bgColorG, element->bgColorB)); // Ê¹ÓÃ±³¾°É«Ìî³ä
-				} else if (wcscmp(element->type, L"TextField") == 0) {
-					// TextField ±ß¿òºÍ±³¾°É«Í¨³£ÊÇ¹Ì¶¨µÄ»òÓÉÏµÍ³¿ØÖÆ£¬ÕâÀïÊ¹ÓÃÄ¬ÈÏÖµ
-					hPen = CreatePen(PS_SOLID, 1, RGB(0, 100, 0)); // ÂÌÉ«±ß¿ò
-					hBrush = CreateSolidBrush(RGB(200, 255, 200)); // Ç³ÂÌÉ«Ìî³ä
-				} else if (wcscmp(element->type, L"TableView") == 0) {
-					hPen = CreatePen(PS_SOLID, 1, RGB(100, 0, 100)); // ×ÏÉ«±ß¿ò
-					hBrush = CreateSolidBrush(RGB(255, 200, 255)); // Ç³×ÏÉ«Ìî³ä
-				} else {
-					hPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0)); // Ä¬ÈÏºÚÉ«±ß¿ò
-					hBrush = (HBRUSH)GetStockObject(WHITE_BRUSH); // Ä¬ÈÏ°×É«Ìî³ä
+				// Use function pointer to call the corresponding drawing function
+				if (element->definition && element->definition->drawFunc) {
+					// Draw using original dimensions, as canvas is fixed
+					element->x = element->original_x;
+					element->y = element->original_y;
+					element->width = element->original_width;
+					element->height = element->original_height;
+					element->definition->drawFunc(hdc, element);
 				}
+			}
 
+			// Draw selection rectangle if an element is selected
+			if (g_selectedElementIndex != -1) {
+				iOSUIElement *selectedElement = &g_iOSUIElements[g_selectedElementIndex];
+				HPEN hPen = CreatePen(PS_DOT, 1, RGB(255, 255, 0)); // Yellow dotted line
 				HPEN hOldPen = SelectObject(hdc, hPen);
-				HBRUSH hOldBrush = SelectObject(hdc, hBrush);
+				HBRUSH hOldBrush = SelectObject(hdc, GetStockObject(NULL_BRUSH)); // No fill
 
-				Rectangle(hdc, elementRect.left, elementRect.top, elementRect.right, elementRect.bottom);
+				Rectangle(hdc, selectedElement->x, selectedElement->y,
+				          selectedElement->x + selectedElement->width, selectedElement->y + selectedElement->height);
+
+				// Draw resize handles
+				int handleSize = GRAB_AREA * 2;
+				HBRUSH hBrush = CreateSolidBrush(RGB(255, 0, 0)); // Red handles
+				HBRUSH hOldBrush2 = SelectObject(hdc, hBrush);
+
+				Ellipse(hdc, selectedElement->x - GRAB_AREA, selectedElement->y - GRAB_AREA,
+				        selectedElement->x + GRAB_AREA, selectedElement->y + GRAB_AREA); // Top-left
+				Ellipse(hdc, selectedElement->x + selectedElement->width - GRAB_AREA, selectedElement->y - GRAB_AREA,
+				        selectedElement->x + selectedElement->width + GRAB_AREA, selectedElement->y + GRAB_AREA); // Top-right
+				Ellipse(hdc, selectedElement->x + selectedElement->width - GRAB_AREA, selectedElement->y + selectedElement->height - GRAB_AREA,
+				        selectedElement->x + selectedElement->width + GRAB_AREA, selectedElement->y + selectedElement->height + GRAB_AREA); // Bottom-right
+				Ellipse(hdc, selectedElement->x - GRAB_AREA, selectedElement->y + selectedElement->height - GRAB_AREA,
+				        selectedElement->x + GRAB_AREA, selectedElement->y + selectedElement->height + GRAB_AREA); // Bottom-left
 
 				SelectObject(hdc, hOldPen);
 				SelectObject(hdc, hOldBrush);
+				SelectObject(hdc, hOldBrush2);
 				DeleteObject(hPen);
-				DeleteObject(hBrush); // ¼ÇµÃÉ¾³ı´´½¨µÄË¢×Ó
-
-				// »æÖÆÎÄ±¾
-				SetBkMode(hdc, TRANSPARENT); // ±³¾°Í¸Ã÷
-				SetTextColor(hdc, RGB(element->textColorR, element->textColorG, element->textColorB)); // ÉèÖÃÎÄ±¾ÑÕÉ«
-
-				// ´´½¨×ÖÌå
-				HFONT hFont = CreateFont(
-				                  -(int)element->fontSize, // ¸ºÖµ±íÊ¾×Ö·û¸ß¶È
-				                  0, 0, 0,
-				                  FW_NORMAL, // ×ÖÖØ
-				                  FALSE, FALSE, FALSE,
-				                  DEFAULT_CHARSET,
-				                  OUT_DEFAULT_PRECIS,
-				                  CLIP_DEFAULT_PRECIS,
-				                  DEFAULT_QUALITY,
-				                  DEFAULT_PITCH | FF_SWISS,
-				                  TEXT("Arial") // Ê¾Àı×ÖÌå£¬¿ÉÒÔÌæ»»ÎªÆäËû×ÖÌå
-				              );
-				HFONT hOldFont = SelectObject(hdc, hFont);
-
-				DrawTextW(hdc, element->text, -1, &elementRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
-
-				SelectObject(hdc, hOldFont); // »Ö¸´¾É×ÖÌå
-				DeleteObject(hFont); // É¾³ı´´½¨µÄ×ÖÌå
+				DeleteObject(hBrush);
 			}
 
 			EndPaint(hwnd, &ps);
@@ -649,59 +568,55 @@ LRESULT CALLBACK CanvasPanelProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 		case WM_LBUTTONDOWN: {
 			mouseX = GET_X_LPARAM(lParam);
 			mouseY = GET_Y_LPARAM(lParam);
-			SetCapture(hwnd); // ²¶»ñÊó±ê£¬È·±£¼´Ê¹Êó±êÒÆ³ö´°¿ÚÒ²ÄÜ¼ÌĞø´¦ÀíÊÂ¼ş
+			SetCapture(hwnd);
 
-			int oldSelected = g_selectedElementIndex; // ¼ÇÂ¼¾ÉµÄÑ¡ÖĞË÷Òı
-			g_selectedElementIndex = -1; // Ä¬ÈÏÎ´Ñ¡ÖĞ
+			int oldSelected = g_selectedElementIndex;
+			g_selectedElementIndex = -1;
 
-			// Ê×ÏÈ¼ì²éÊÇ·ñµã»÷µ½Ëõ·ÅÊÖ±ú (Èç¹ûÒÑÓĞÑ¡ÖĞÔªËØ)
 			if (oldSelected != -1) {
 				iOSUIElement *element = &g_iOSUIElements[oldSelected];
 				RECT r = {element->x, element->y, element->x + element->width, element->y + element->height};
 
 				if (mouseX >= r.left - GRAB_AREA && mouseX <= r.left + GRAB_AREA &&
 				        mouseY >= r.top - GRAB_AREA && mouseY <= r.top + GRAB_AREA) {
-					resizeHandle = 0; // Top-Left
-					g_selectedElementIndex = oldSelected; // ±£³ÖÑ¡ÖĞ
+					resizeHandle = 0;
+					g_selectedElementIndex = oldSelected;
 				} else if (mouseX >= r.right - GRAB_AREA && mouseX <= r.right + GRAB_AREA &&
 				           mouseY >= r.top - GRAB_AREA && mouseY <= r.top + GRAB_AREA) {
-					resizeHandle = 1; // Top-Right
+					resizeHandle = 1;
 					g_selectedElementIndex = oldSelected;
 				} else if (mouseX >= r.right - GRAB_AREA && mouseX <= r.right + GRAB_AREA &&
 				           mouseY >= r.bottom - GRAB_AREA && mouseY <= r.bottom + GRAB_AREA) {
-					resizeHandle = 2; // Bottom-Right
+					resizeHandle = 2;
 					g_selectedElementIndex = oldSelected;
 				} else if (mouseX >= r.left - GRAB_AREA && mouseX <= r.left + GRAB_AREA &&
 				           mouseY >= r.bottom - GRAB_AREA && mouseY <= r.bottom + GRAB_AREA) {
-					resizeHandle = 3; // Bottom-Left
+					resizeHandle = 3;
 					g_selectedElementIndex = oldSelected;
 				}
 			}
 
-			if (resizeHandle == -1) { // Èç¹ûÃ»ÓĞµã»÷µ½Ëõ·ÅÊÖ±ú£¬Ôò¼ì²éÊÇ·ñµã»÷µ½ÔªËØ»ò¿Õ°×´¦
-				// ±éÀúËùÓĞÔªËØ£¬¼ì²éµã»÷ÊÇ·ñÔÚÄ³¸öÔªËØµÄ±ß½çÄÚ
-				for (int i = g_iOSUIElementCount - 1; i >= 0; i--) { // ´ÓºóÍùÇ°±éÀú£¬È·±£µã»÷µ½×îÉÏ²ãµÄÔªËØ
+			if (resizeHandle == -1) {
+				for (int i = g_iOSUIElementCount - 1; i >= 0; i--) {
 					iOSUIElement *element = &g_iOSUIElements[i];
 					RECT elementRect = {element->x, element->y, element->x + element->width, element->y + element->height};
 
 					if (PtInRect(&elementRect, (POINT) {
 					mouseX, mouseY
 				})) {
-						g_selectedElementIndex = i; // Ñ¡ÖĞÕâ¸öÔªËØ
-						isDragging = TRUE; // ¿ªÊ¼ÍÏ×§
+						g_selectedElementIndex = i;
+						isDragging = TRUE;
 						dragOffset_X = mouseX - element->x;
 						dragOffset_Y = mouseY - element->y;
-						break; // ÕÒµ½µÚÒ»¸ö¾ÍÍË³ö
+						break;
 					}
 				}
 			}
 
-			// Èç¹ûÑ¡ÖĞ×´Ì¬¸Ä±ä£¨°üÀ¨´ÓÑ¡ÖĞµ½Î´Ñ¡ÖĞ£©£¬¸üĞÂÊôĞÔÃæ°å²¢ÖØ»æ»­²¼
 			if (oldSelected != g_selectedElementIndex) {
 				UpdatePropertiesPanel();
-				InvalidateRect(hwnd, NULL, TRUE); // ÖØ»æ»­²¼£¬¸üĞÂÑ¡ÖĞ¸ßÁÁ
+				InvalidateRect(hwnd, NULL, TRUE);
 			} else if (g_selectedElementIndex != -1 && (isDragging || resizeHandle != -1)) {
-				// Èç¹ûÊÇÍ¬Ò»¸öÔªËØ£¬µ«¿ªÊ¼ÁËÍÏ×§»òËõ·Å£¬Ò²ĞèÒª¸üĞÂÊôĞÔÃæ°å (ÒÔ±ãÏÔÊ¾Êó±êÊµÊ±¸üĞÂµÄ×ø±ê)
 				UpdatePropertiesPanel();
 				InvalidateRect(hwnd, NULL, TRUE);
 			}
@@ -715,254 +630,157 @@ LRESULT CALLBACK CanvasPanelProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 			if (g_selectedElementIndex != -1 && (isDragging || resizeHandle != -1)) {
 				iOSUIElement *element = &g_iOSUIElements[g_selectedElementIndex];
 
-				// »ñÈ¡»­²¼µ±Ç°Êµ¼Ê³ß´ç
-				RECT currentCanvasRect;
-				GetClientRect(hwnd, &currentCanvasRect);
-				int currentCanvasWidth = currentCanvasRect.right;
-				int currentCanvasHeight = currentCanvasRect.bottom;
+				// Canvas dimensions are fixed, so these are CANVAS_INITIAL_WIDTH/HEIGHT
+				int currentCanvasWidth = CANVAS_INITIAL_WIDTH;
+				int currentCanvasHeight = CANVAS_INITIAL_HEIGHT;
 
-				// ¼ÆËãµ±Ç°»­²¼Ïà¶ÔÓÚÆäÔ­Ê¼³ß´çµÄËõ·Å±ÈÀı
-				double currentScaleForElements = (currentCanvasWidth > 0) ? ((double)currentCanvasWidth / CANVAS_INITIAL_WIDTH) : 1.0;
-
-				int newX = element->x;
-				int newY = element->y;
-				int newWidth = element->width;
-				int newHeight = element->height;
+				int newX = element->original_x; // Start with original values for calculations
+				int newY = element->original_y;
+				int newWidth = element->original_width;
+				int newHeight = element->original_height;
 
 				if (isDragging) {
 					newX = mouseX - dragOffset_X;
 					newY = mouseY - dragOffset_Y;
 
-					// ÏŞÖÆÔªËØ²»³¬³ö»­²¼±ß½ç
+					// Clamp to canvas boundaries
 					if (newX < 0) newX = 0;
 					if (newY < 0) newY = 0;
-					if (newX + element->width > currentCanvasWidth) newX = currentCanvasWidth - element->width;
-					if (newY + element->height > currentCanvasHeight) newY = currentCanvasHeight - element->height;
+					if (newX + element->original_width > currentCanvasWidth) newX = currentCanvasWidth - element->original_width;
+					if (newY + element->original_height > currentCanvasHeight) newY = currentCanvasHeight - element->original_height;
 
-					element->x = newX;
-					element->y = newY;
+					element->original_x = newX;
+					element->original_y = newY;
 
 				} else if (resizeHandle != -1) {
-					int originalElementX = element->x;
-					int originalElementY = element->y;
-					int originalElementWidth = element->width;
-					int originalElementHeight = element->height;
+					int originalElementX = element->original_x;
+					int originalElementY = element->original_y;
+					int originalElementWidth = element->original_width;
+					int originalElementHeight = element->original_height;
 
 					switch (resizeHandle) {
-						case 0: // Top-Left
+						case 0: // Top-left
 							newX = mouseX;
 							newY = mouseY;
 							newWidth = originalElementX + originalElementWidth - newX;
 							newHeight = originalElementY + originalElementHeight - newY;
 							break;
-						case 1: // Top-Right
-							newX = originalElementX; // X ±£³Ö²»±ä
+						case 1: // Top-right
+							newX = originalElementX;
 							newY = mouseY;
 							newWidth = mouseX - originalElementX;
 							newHeight = originalElementY + originalElementHeight - newY;
 							break;
-						case 2: // Bottom-Right
-							newX = originalElementX; // X ±£³Ö²»±ä
-							newY = originalElementY; // Y ±£³Ö²»±ä
+						case 2: // Bottom-right
+							newX = originalElementX;
+							newY = originalElementY;
 							newWidth = mouseX - originalElementX;
 							newHeight = mouseY - originalElementY;
 							break;
-						case 3: // Bottom-Left
+						case 3: // Bottom-left
 							newX = mouseX;
-							newY = originalElementY; // Y ±£³Ö²»±ä
+							newY = originalElementY;
 							newWidth = originalElementX + originalElementWidth - newX;
-							newHeight = mouseY - element->original_y;
+							newHeight = mouseY - originalElementY;
 							break;
 					}
 
-					// È·±£¿í¶ÈºÍ¸ß¶ÈÖÁÉÙÎª1£¬²¢ÇÒ²»³¬³ö»­²¼±ß½ç
+					// Ensure minimum size
 					if (newWidth < 1) newWidth = 1;
 					if (newHeight < 1) newHeight = 1;
 
-					// ÏŞÖÆÔªËØ²»³¬³ö»­²¼±ß½ç (Õë¶ÔËõ·ÅºóµÄĞÂÎ»ÖÃºÍ´óĞ¡)
+					// Clamp to canvas boundaries
 					if (newX < 0) {
-						newWidth += newX; // Adjust width if X goes negative
+						newWidth += newX;
 						newX = 0;
 					}
 					if (newY < 0) {
-						newHeight += newY; // Adjust height if Y goes negative
+						newHeight += newY;
 						newY = 0;
 					}
 					if (newX + newWidth > currentCanvasWidth) newWidth = currentCanvasWidth - newX;
 					if (newY + newHeight > currentCanvasHeight) newHeight = currentCanvasHeight - newY;
 
-					element->x = newX;
-					element->y = newY;
-					element->width = newWidth;
-					element->height = newHeight;
+					element->original_x = newX;
+					element->original_y = newY;
+					element->original_width = newWidth;
+					element->original_height = newHeight;
 				}
 
-				// --- ÊµÊ±¸üĞÂÔªËØµÄ original_* ÊôĞÔ ---
-				// Ö»ÓĞµ± currentScaleForElements ²»ÎªÁãÊ±²Å½øĞĞ¼ÆËã£¬±ÜÃâ³ıÒÔÁã
-				if (currentScaleForElements != 0) {
-					element->original_x = (int)round(element->x / currentScaleForElements);
-					element->original_y = (int)round(element->y / currentScaleForElements);
-					element->original_width = (int)round(element->width / currentScaleForElements);
-					element->original_height = (int)round(element->height / currentScaleForElements);
-				}
+				// Update current x, y, width, height for drawing based on original values
+				element->x = element->original_x;
+				element->y = element->original_y;
+				element->width = element->original_width;
+				element->height = element->original_height;
 
-
-				UpdatePropertiesPanel(); // ÊµÊ±¸üĞÂÊôĞÔÃæ°å
-				InvalidateRect(hwnd, NULL, TRUE); // ÊµÊ±ÖØ»æ
+				UpdatePropertiesPanel();
+				InvalidateRect(hwnd, NULL, TRUE);
+				UpdateWindow(hwnd);
 			} else {
-				// Î´ÍÏ×§»òËõ·ÅÊ±£¬¸ù¾İÊó±êÎ»ÖÃ¸Ä±ä¹â±êĞÎ×´
 				if (g_selectedElementIndex != -1) {
 					iOSUIElement *element = &g_iOSUIElements[g_selectedElementIndex];
 					RECT r = {element->x, element->y, element->x + element->width, element->y + element->height};
 					HCURSOR hCursor = NULL;
 
 					if ((mouseX >= r.left - GRAB_AREA && mouseX <= r.left + GRAB_AREA &&
-					        mouseY >= r.top - GRAB_AREA && mouseY <= r.top + GRAB_AREA) || // TL
+					        mouseY >= r.top - GRAB_AREA && mouseY <= r.top + GRAB_AREA) ||
 					        (mouseX >= r.right - GRAB_AREA && mouseX <= r.right + GRAB_AREA &&
-					         mouseY >= r.bottom - GRAB_AREA && mouseY <= r.bottom + GRAB_AREA)) { // BR
+					         mouseY >= r.bottom - GRAB_AREA && mouseY <= r.bottom + GRAB_AREA)) {
 						hCursor = LoadCursor(NULL, IDC_SIZENWSE);
 					} else if ((mouseX >= r.right - GRAB_AREA && mouseX <= r.right + GRAB_AREA &&
-					            mouseY >= r.top - GRAB_AREA && mouseY <= r.top + GRAB_AREA) || // TR
+					            mouseY >= r.top - GRAB_AREA && mouseY <= r.top + GRAB_AREA) ||
 					           (mouseX >= r.left - GRAB_AREA && mouseX <= r.left + GRAB_AREA &&
-					            mouseY >= r.bottom - GRAB_AREA && mouseY <= r.bottom + GRAB_AREA)) { // BL
+					            mouseY >= r.bottom - GRAB_AREA && mouseY <= r.bottom + GRAB_AREA)) {
 						hCursor = LoadCursor(NULL, IDC_SIZENESW);
 					} else if (PtInRect(&r, (POINT) {
 					mouseX, mouseY
-				})) { // Inside the element
-						hCursor = LoadCursor(NULL, IDC_SIZEALL); // Move cursor
+				})) {
+						hCursor = LoadCursor(NULL, IDC_SIZEALL);
 					} else {
-						hCursor = LoadCursor(NULL, IDC_ARROW); // Default cursor
+						hCursor = LoadCursor(NULL, IDC_ARROW);
 					}
 					if (hCursor) SetCursor(hCursor);
 				} else {
-					SetCursor(LoadCursor(NULL, IDC_ARROW)); // Default cursor
+					SetCursor(LoadCursor(NULL, IDC_ARROW));
 				}
 			}
 			break;
 		}
 
 		case WM_LBUTTONUP: {
-			ReleaseCapture(); // ÊÍ·ÅÊó±ê²¶»ñ
+			ReleaseCapture();
 			isDragging = FALSE;
 			resizeHandle = -1;
-			// ÍÏ×§»òËõ·Å½áÊøºó£¬ÖØĞÂÉú³É´úÂë£¬È·±£×îĞÂ×ø±ê±»Ğ´Èë
-			RegenerateAllObjCCode(); // È·±£ÍÏ×§/Ëõ·Åºó´úÂëÒ²¸üĞÂ
+			UpdatePropertiesPanel();
+			RegenerateAllObjCCode();
+
 			break;
 		}
 		case WM_SETCURSOR:
-			// ÔÊĞí WM_MOUSEMOVE ÏûÏ¢´¦ÀíÖĞÉèÖÃ¹â±ê£¬±ÜÃâÉÁË¸
 			if (LOWORD(lParam) == HTCLIENT) {
 				return TRUE;
 			}
 			return DefWindowProc(hwnd, msg, wParam, lParam);
-		default:
-			return DefWindowProc(hwnd, msg, wParam, lParam);
-	}
-	return 0;
-}
+		case WM_RBUTTONDOWN: {
+			// è·å–é¼ æ ‡ç‚¹å‡»çš„åæ ‡
+			int mouseX = LOWORD(lParam);
+			int mouseY = HIWORD(lParam);
 
-// ¹¤¾ßÏäÃæ°å¹ı³Ì (´¦ÀíÆäÄÚ²¿°´Å¥µã»÷£¬È»ºó½«ÊÂ¼ş´«µİ¸øÖ÷´°¿Ú£¬»òÕßÖ±½ÓÔÚÕâÀï´¦ÀíÔªËØµÄ´´½¨)
-LRESULT CALLBACK toolpanelproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-	WCHAR debugMsg[256];
-	switch (msg) {
-		case WM_COMMAND: {
-			if (g_iOSUIElementCount >= MAX_UI_ELEMENTS) {
-				MessageBox(hwnd, TEXT("»­²¼ÒÑÂú£¬ÎŞ·¨Ìí¼Ó¸ü¶àÔªËØ¡£"), TEXT("ÌáÊ¾"), MB_OK | MB_ICONINFORMATION);
-				break;
+			// æ£€æŸ¥æ˜¯å¦æœ‰å…ƒç´ è¢«é€‰ä¸­
+			if (g_selectedElementIndex != -1) {
+				// åˆ›å»ºå¹¶æ˜¾ç¤ºå³é”®èœå•
+				HMENU hPopupMenu = CreatePopupMenu();
+				AppendMenu(hPopupMenu, MF_STRING, IDM_DELETE_ELEMENT, TEXT("åˆ é™¤"));
+
+				// å°†å®¢æˆ·ç«¯åæ ‡è½¬æ¢ä¸ºå±å¹•åæ ‡
+				POINT pt;
+				pt.x = mouseX;
+				pt.y = mouseY;
+				ClientToScreen(g_hCanvasPanel, &pt);
+
+				TrackPopupMenu(hPopupMenu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, GetParent(hwnd), NULL);
+				DestroyMenu(hPopupMenu);
 			}
-
-			iOSUIElement newElement;
-			ZeroMemory(&newElement, sizeof(newElement));
-
-			newElement.original_x = 50; // ¼òµ¥ÅÅ²¼
-			newElement.original_y = 50;
-			newElement.id = IDC_GENERATED_UI_BASE + g_iOSUIElementCount;
-
-			// ¸ù¾İµ±Ç°»­²¼Ëõ·Å±ÈÀı£¬¼ÆËã³õÊ¼ÏÔÊ¾×ø±ê
-			RECT currentCanvasRect;
-			GetClientRect(g_hCanvasPanel, &currentCanvasRect);
-			int currentCanvasWidth = currentCanvasRect.right;
-			double currentScale = (currentCanvasWidth > 0) ? ((double)currentCanvasWidth / CANVAS_INITIAL_WIDTH) : 1.0;
-
-			switch (LOWORD(wParam)) {
-				case IDC_TOOL_BUTTON: {
-					newElement.hasText = TRUE;
-					wcscpy_s(newElement.type, _countof(newElement.type), L"Button");
-					wcscpy_s(newElement.text, _countof(newElement.text), L"µã»÷ÎÒ");
-					newElement.original_width = 100;
-					newElement.original_height = 30;
-					// °´Å¥Ä¬ÈÏÑÕÉ«
-					newElement.hasBgColor = TRUE;
-					newElement.hasTextColor = TRUE;
-					newElement.bgColorR = 0;
-					newElement.bgColorG = 122;
-					newElement.bgColorB = 255; // iOS À¶É«
-					newElement.textColorR = 255;
-					newElement.textColorG = 255;
-					newElement.textColorB = 255; // °×É«
-					newElement.fontSize = 17.0f;
-					break;
-				}
-				case IDC_TOOL_TEXTFIELD: {
-					newElement.hasText = TRUE;
-					newElement.hasBgColor = TRUE;
-					newElement.hasTextColor = TRUE;
-					wcscpy_s(newElement.type, _countof(newElement.type), L"TextField");
-					wcscpy_s(newElement.text, _countof(newElement.text), L"ÇëÊäÈë...") // Placeholder
-					newElement.original_width = 200;
-					newElement.original_height = 30;
-					// ÎÄ±¾¿òÄ¬ÈÏÑÕÉ«
-					newElement.bgColorR = 255;
-					newElement.bgColorG = 255;
-					newElement.bgColorB = 255; // °×É«±³¾° (²»Ö±½ÓÊ¹ÓÃ£¬µ«´æ´¢)
-					newElement.textColorR = 0;
-					newElement.textColorG = 0;
-					newElement.textColorB = 0; // ºÚÉ«
-					newElement.fontSize = 17.0f;
-					break;
-				}
-				case IDC_TOOL_TABLEVIEW: {
-					newElement.hasText = TRUE;
-					newElement.hasBgColor = TRUE;
-					newElement.hasTextColor = TRUE;
-					wcscpy_s(newElement.type, _countof(newElement.type), L"TableView");
-					wcscpy_s(newElement.text, _countof(newElement.text), L"±í¸ñÊÓÍ¼"); // ½ö×÷ÏÔÊ¾£¬Êµ¼Ê tableView ÎŞ´ËÊôĞÔ
-					newElement.original_width = 300;
-					newElement.original_height = 200;
-					// TableView Ä¬ÈÏÑÕÉ« (²»³£ÓÃ£¬µ«ÎªÁËÍêÕûĞÔ)
-					newElement.bgColorR = 242;
-					newElement.bgColorG = 242;
-					newElement.bgColorB = 247; // iOS Ä¬ÈÏ±³¾°É«
-					newElement.textColorR = 0;
-					newElement.textColorG = 0;
-					newElement.textColorB = 0; // ºÚÉ«
-					newElement.fontSize = 17.0f;
-					break;
-				}
-				default:
-					return DefWindowProc(hwnd, msg, wParam, lParam); // ÆäËûÃüÁî£¬½»¸øÄ¬ÈÏ´¦Àí
-			}
-
-			// ¼ÆËãÔªËØÔÚµ±Ç°»­²¼ÉÏµÄÊµ¼ÊÏÔÊ¾Î»ÖÃºÍ´óĞ¡
-			newElement.x = (int)round(newElement.original_x * currentScale);
-			newElement.y = (int)round(newElement.original_y * currentScale);
-			newElement.width = (int)round(newElement.original_width * currentScale);
-			newElement.height = (int)round(newElement.original_height * currentScale);
-
-
-			// Ìí¼ÓĞÂÔªËØµ½È«¾ÖÊı×é
-			g_iOSUIElements[g_iOSUIElementCount] = newElement;
-			g_iOSUIElementCount++;
-
-			// Ñ¡ÖĞĞÂÌí¼ÓµÄÔªËØ
-			g_selectedElementIndex = g_iOSUIElementCount - 1;
-
-			// Ç¿ÖÆ»­²¼ÖØ»æ£¬ÏÔÊ¾ĞÂÌí¼ÓµÄÔªËØºÍÑ¡ÖĞ×´Ì¬
-			InvalidateRect(g_hCanvasPanel, NULL, TRUE); // TRUE ±íÊ¾²Á³ı±³¾°
-
-			// ¸üĞÂÊôĞÔÃæ°åºÍ´úÂë
-			UpdatePropertiesPanel();
-			RegenerateAllObjCCode();
 			break;
 		}
 		default:
@@ -971,94 +789,239 @@ LRESULT CALLBACK toolpanelproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
 	return 0;
 }
 
-// ĞÂÔö£º´úÂë/ÊôĞÔÃæ°åµÄ´°¿Ú¹ı³Ìº¯Êı
+LRESULT CALLBACK toolpanelproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+	HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtr(GetParent(hwnd), GWLP_HINSTANCE);
+
+	switch (msg) {
+		case WM_CTLCOLORBTN:
+
+			HWND hbn = (HWND)lParam;
+			HDC hdc = (HDC)wParam;
+			RECT rc;
+			TCHAR text[64];
+
+			GetWindowText(hbn, text, 63);
+			GetClientRect(hbn, &rc);
+			SetTextColor(hdc, RGB(255, 255, 255));
+			SetBkMode(hdc, TRANSPARENT);
+			DrawText(hdc, text, _tcslen(text), &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+			return (INT_PTR)butbackbr;
+			break;
+		case WM_VSCROLL: {
+
+			int nScrollCode = LOWORD(wParam);
+			int nPos = HIWORD(wParam); // ä»…å¯¹ SB_THUMBTRACK å’Œ SB_THUMBPOSITION æœ‰æ•ˆ
+
+			SCROLLINFO si;
+			si.cbSize = sizeof(si);
+			si.fMask = SIF_ALL; // è·å–æ‰€æœ‰æ»šåŠ¨æ¡ä¿¡æ¯
+
+			GetScrollInfo(hwnd, SB_VERT, &si);
+			int oldPos = si.nPos; // å­˜å‚¨å½“å‰ä½ç½®
+
+			switch (nScrollCode) {
+				case SB_TOP:
+					si.nPos = si.nMin;
+					break;        // æ»šåŠ¨åˆ°é¡¶éƒ¨
+				case SB_BOTTOM:
+					si.nPos = si.nMax;
+					break;       // æ»šåŠ¨åˆ°åº•éƒ¨
+				case SB_LINEUP:
+					si.nPos -= 10;
+					break;           // å‘ä¸Šæ»šåŠ¨ä¸€è¡Œ (ä»»æ„10åƒç´ )
+				case SB_LINEDOWN:
+					si.nPos += 10;
+					break;         // å‘ä¸‹æ»šåŠ¨ä¸€è¡Œ
+				case SB_PAGEUP:
+					si.nPos -= si.nPage;
+					break;   // å‘ä¸Šæ»šåŠ¨ä¸€é¡µ
+				case SB_PAGEDOWN:
+					si.nPos += si.nPage;
+					break; // å‘ä¸‹æ»šåŠ¨ä¸€é¡µ
+				case SB_THUMBTRACK: // ç”¨æˆ·æ­£åœ¨æ‹–åŠ¨æ»‘å—
+				case SB_THUMBPOSITION: // ç”¨æˆ·é‡Šæ”¾äº†æ»‘å—
+					si.nPos = nPos; // è®¾ç½®ä½ç½®ä¸ºæ»‘å—æ‰€åœ¨ä½ç½®
+					break;
+			}
+			// å°†æ–°ä½ç½®é™åˆ¶åœ¨æœ‰æ•ˆèŒƒå›´å†…
+			int maxScroll = si.nMax - si.nPage + 1; // æ»šåŠ¨æ¡æœ€å¤§ä½ç½®æ˜¯ max - page + 1
+			if (si.nPos < 0) si.nPos = 0;
+			if (si.nPos > maxScroll) si.nPos = maxScroll;
+			// å¦‚æœä½ç½®å‘ç”Ÿå˜åŒ–ï¼Œæ›´æ–°æ»šåŠ¨æ¡å’Œå†…å®¹
+			if (si.nPos != oldPos) {
+				SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
+
+				toolPanelScrollPos = si.nPos; // æ›´æ–°æˆ‘ä»¬çš„å…¨å±€æ»šåŠ¨ä½ç½®
+				MoveToolButtons(hwnd); // æ ¹æ®æ–°çš„æ»šåŠ¨ä½ç½®ç§»åŠ¨å­æŒ‰é’®
+
+
+				SetScrollPos(hwnd, SB_VERT, toolPanelScrollPos, TRUE);
+
+				// ä½¿å·¥å…·æ é¢æ¿å¤±æ•ˆï¼Œç¡®ä¿å®ƒé‡æ–°ç»˜åˆ¶
+				InvalidateRect(hwnd, NULL, FALSE);
+
+
+
+			}
+
+			break;
+		}
+
+		case WM_SIZE: {
+			// å½“å·¥å…·æ é¢æ¿è‡ªèº«å¤§å°æ”¹å˜æ—¶å‘é€æ­¤æ¶ˆæ¯ã€‚
+			// æˆ‘ä»¬éœ€è¦åœ¨è¿™é‡Œæ›´æ–°æ»šåŠ¨æ¡èŒƒå›´ã€‚
+
+			RECT rcClient;
+			GetClientRect(hwnd, &rcClient);
+
+			// è®¡ç®—æ‰€æœ‰æŒ‰é’®çš„æ€»å†…å®¹é«˜åº¦
+			int totalContentHeight = 0;
+			if (g_numToolButtons > 0) {
+				for (int i = 0; i < g_numToolButtons; i++) {
+					// è®¡ç®—æ¯ä¸ªæŒ‰é’®çš„åº•éƒ¨è¾¹ç¼˜ç›¸å¯¹äºå·¥å…·æ é¢æ¿é¡¶éƒ¨çš„åæ ‡
+					// g_toolButtonOriginalY[i] æ˜¯æŒ‰é’®çš„é¡¶éƒ¨ Y åæ ‡
+					// 40 æ˜¯æŒ‰é’®çš„é«˜åº¦ (buttonHeight)
+					int buttonBottom = g_toolButtonOriginalY[i] + 40;
+					if (buttonBottom > totalContentHeight) {
+						totalContentHeight = buttonBottom ;
+					}
+				}
+				// åœ¨æ‰€æœ‰æŒ‰é’®çš„æœ€ä½ç‚¹åŸºç¡€ä¸Šå¢åŠ é¢å¤–çš„åº•éƒ¨å¡«å……ï¼Œç¡®ä¿æœ€åä¸€ä¸ªæŒ‰é’®å®Œå…¨å¯è§
+				totalContentHeight += 20; // å¢åŠ 20åƒç´ çš„åº•éƒ¨å¡«å……
+			}
+
+			// è®¡ç®—æœ€å¤§æ»šåŠ¨ä½ç½®
+			// å®ƒæ˜¯æ€»å†…å®¹é«˜åº¦å‡å»å¯è§å®¢æˆ·åŒºé«˜åº¦
+			toolPanelMaxScroll = max(0, totalContentHeight - rcClient.bottom);
+
+
+
+			SCROLLINFO si;
+			si.cbSize = sizeof(si);
+			si.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
+			si.nMin = 0;
+			si.nMax = totalContentHeight;
+			si.nPage = rcClient.bottom - rcClient.top;
+			si.nPos = toolPanelScrollPos;
+
+			// å°†æ»šåŠ¨æ¡ä¿¡æ¯è®¾ç½®åˆ°è‡ªå®šä¹‰æ»šåŠ¨æ¡
+			SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
+
+			// å¦‚æœå½“å‰æ»šåŠ¨ä½ç½®è¶…å‡ºæ–°èŒƒå›´ï¼Œåˆ™è¿›è¡Œè°ƒæ•´
+			if (toolPanelScrollPos > toolPanelMaxScroll) {
+				toolPanelScrollPos = toolPanelMaxScroll;
+				SetScrollPos(hwnd, SB_VERT, toolPanelScrollPos, TRUE);
+			}
+
+			// æ ¹æ®æ–°çš„æ»šåŠ¨ä½ç½®ç§»åŠ¨æ‰€æœ‰å­æŒ‰é’®
+			MoveToolButtons(hwnd);
+			// ä½¿å·¥å…·æ é¢æ¿å¤±æ•ˆï¼Œç¡®ä¿å®ƒé‡æ–°ç»˜åˆ¶
+
+
+			InvalidateRect(hwnd, NULL, FALSE);
+
+
+			break;
+		}
+
+		case WM_MOUSEWHEEL: {
+
+			// è·å–æ»šè½®æ»šåŠ¨é‡
+			short wheelDelta = HIWORD(wParam);
+
+			// æ ¹æ®æ»šåŠ¨é‡è°ƒæ•´æ»šåŠ¨ä½ç½®
+			// wheelDelta é€šå¸¸æ˜¯ 120 çš„å€æ•°
+			int yDelta = -wheelDelta / 3;
+
+			int oldScrollPos = toolPanelScrollPos;
+			toolPanelScrollPos += yDelta;
+
+			SCROLLINFO si = {0};
+			si.cbSize = sizeof(SCROLLINFO);
+			si.fMask = SIF_RANGE | SIF_PAGE;
+			GetScrollInfo(hwnd, SB_VERT, &si);
+
+			// é™åˆ¶æ»šåŠ¨ä½ç½®åœ¨æœ‰æ•ˆèŒƒå›´å†…
+			int maxScroll = si.nMax - si.nPage + 1; // æ»šåŠ¨æ¡æœ€å¤§ä½ç½®æ˜¯ max - page + 1
+			if (toolPanelScrollPos < 0) toolPanelScrollPos = 0;
+			if (toolPanelScrollPos > maxScroll) toolPanelScrollPos = maxScroll;
+
+			if (toolPanelScrollPos != oldScrollPos) {
+				// æ›´æ–°æ»šåŠ¨æ¡ä½ç½®
+
+
+				SetScrollPos(hwnd, SB_VERT, toolPanelScrollPos, TRUE);
+
+
+				MoveToolButtons(hwnd);
+				// å¼ºåˆ¶é‡ç»˜ï¼Œç§»åŠ¨å­æ§ä»¶
+				InvalidateRect(hwnd, NULL, FALSE);
+			}
+
+			break;
+		}
+		case WM_COMMAND: {
+			SendMessage(GetParent(hwnd), WM_COMMAND, wParam, lParam);
+			break;
+		}
+
+
+
+
+		default:
+			return DefWindowProc(hwnd, msg, wParam, lParam);
+	}
+	return 0;
+}
+
 LRESULT CALLBACK CodePropertiesPanelProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE);
 
-	// ¶¨Òå²¼¾Ö³£Á¿
-	const int labelWidth = 80;
-	const int editWidth = 80;
-	const int colorEditWidth = 40; // For R, G, B components
-	const int longEditWidth = 265; // For text/placeholder
-	const int controlHeight = 30;
-	const int rowSpacing = 35; // Vertical spacing between rows
-	const int colSpacing = 20; // Horizontal spacing between columns
-	const int panelPadding = 10; // Padding from panel edges
-
-	// ÊôĞÔÃæ°åµÄÆğÊ¼ Y ×ø±ê (ÔÚ´úÂë±à¼­¿òÏÂ·½)
-	int propPanelStartY = 30 + 400 + 25; // ÓëÖ÷´°¿ÚÖĞ¼ÆËã·½Ê½±£³ÖÒ»ÖÂ
-
 	switch (msg) {
 		case WM_CREATE: {
-			// ÔÚÕâÀï´´½¨´úÂëÊä³öÃæ°åÄÚµÄËùÓĞ×Ó¿Ø¼ş
-			// ÔÚ´úÂëÊä³öÃæ°åÖĞÌí¼Ó±êÌâ
 
-			CreateWindowEx(0, TEXT("STATIC"), TEXT("Éú³ÉµÄ Objective-C ´úÂë"), WS_CHILD | WS_VISIBLE | SS_CENTER,
-			               0, 5, 550, 20, hwnd, NULL, hInstance, NULL);
 
-			// ÔÚ´úÂëÊä³öÃæ°åÖĞ´´½¨Ò»¸ö¶àĞĞ±à¼­¿òÀ´ÏÔÊ¾´úÂë
-			g_hCodeEdit = CreateWindowEx( // ´æ´¢µ½È«¾Ö±äÁ¿
-			                  0,                                  // À©Õ¹ÑùÊ½
-			                  TEXT("EDIT"),                       // ¿Ø¼şÀàÃû
-			                  TEXT("// ´úÂë½«ÔÚÕâÀïÉú³É£¬²¢µ÷ÓÃÄãµÄ csm ¹¤³§·½·¨...\r\n// ÀıÈç£º[UIViewController createButtonWithFrame:...]\r\n\r\n"), // ³õÊ¼ÎÄ±¾
-			                  WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_HSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | ES_AUTOHSCROLL,
-			                  panelPadding, 30,                             // X, Y ×ø±ê (Ïà¶ÔÓÚ hCodeOutputPanel)
-			                  550 - (2 * panelPadding), 400,           // ¿í¶È, ¸ß¶È
-			                  hwnd,                               // ¸¸´°¿Ú¾ä±ú (ÏÖÔÚÊÇ CodePropertiesPanelProc ×ÔÉíµÄ hwnd)
-			                  (HMENU)IDC_CODE_DISPLAY_EDIT,       // ¿Ø¼şID
-			                  hInstance,                          // Ó¦ÓÃ³ÌĞòÊµÀı¾ä±ú
-			                  NULL                                // ´´½¨²ÎÊı
-			              );
 
-			// --- ÊôĞÔÃæ°åÇøÓò ---
-			// ÊôĞÔÃæ°å±êÌâ
-			CreateWindowEx(0, TEXT("STATIC"), TEXT("ÊôĞÔ"), WS_CHILD | WS_VISIBLE | SS_CENTER,
-			               0, propPanelStartY - 20, 550, 20, hwnd, NULL, hInstance, NULL);
 
-			int currentY = propPanelStartY; // ÓÃÓÚ¸ú×Ùµ±Ç°ĞĞµÄY×ø±ê
-
-			// ÀàĞÍ (¾²Ì¬ÎÄ±¾)
-			CreateWindowEx(0, TEXT("STATIC"), TEXT("ÀàĞÍ:"), WS_CHILD | WS_VISIBLE,
-			               panelPadding, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_TYPE_LABEL, hInstance, NULL);
-			g_hPropTypeStatic = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("STATIC"), TEXT("ÎŞÑ¡ÖĞ"), WS_CHILD | WS_VISIBLE | SS_CENTER,
+			int currentY = propPanelStartY;
+			initprop(hwnd);
+			CreateWindowEx(0, TEXT("static"), TEXT("å±æ€§"), WS_CHILD | WS_VISIBLE | SS_CENTER,
+			               0, 430, 550, 20, hwnd, NULL, hInstance, NULL);
+			//CreateWindowEx(0, TEXT("STATIC"), TEXT("ç±»å‹:"), WS_CHILD | WS_VISIBLE,
+			//  panelPadding, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_TYPE_LABEL, hInstance, NULL);
+			/*g_hPropTypeStatic = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("STATIC"), TEXT("æ— é€‰ä¸­"), WS_CHILD | WS_VISIBLE | SS_CENTER,
 			                                   panelPadding + labelWidth + colSpacing, currentY, longEditWidth, controlHeight, hwnd, (HMENU)IDC_PROP_TYPE_STATIC, hInstance, NULL);
 			currentY += rowSpacing;
 
-			// X ×ø±ê
 			CreateWindowEx(0, TEXT("STATIC"), TEXT("X:"), WS_CHILD | WS_VISIBLE,
 			               panelPadding, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_X_LABEL, hInstance, NULL);
 			g_hPropXEdit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
 			                              panelPadding + labelWidth + colSpacing, currentY, editWidth, controlHeight, hwnd, (HMENU)IDC_PROP_X_EDIT, hInstance, NULL);
 
-			// Y ×ø±ê
 			CreateWindowEx(0, TEXT("STATIC"), TEXT("Y:"), WS_CHILD | WS_VISIBLE,
 			               panelPadding + labelWidth + colSpacing + editWidth + colSpacing, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_Y_LABEL, hInstance, NULL);
 			g_hPropYEdit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
 			                              panelPadding + labelWidth + colSpacing + editWidth + colSpacing + labelWidth + colSpacing, currentY, editWidth, controlHeight, hwnd, (HMENU)IDC_PROP_Y_EDIT, hInstance, NULL);
 			currentY += rowSpacing;
 
-			// ¿í¶È
-			CreateWindowEx(0, TEXT("STATIC"), TEXT("¿í¶È:"), WS_CHILD | WS_VISIBLE,
+			CreateWindowEx(0, TEXT("STATIC"), TEXT("å®½åº¦:"), WS_CHILD | WS_VISIBLE,
 			               panelPadding, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_WIDTH_LABEL, hInstance, NULL);
 			g_hPropWidthEdit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
 			                                  panelPadding + labelWidth + colSpacing, currentY, editWidth, controlHeight, hwnd, (HMENU)IDC_PROP_WIDTH_EDIT, hInstance, NULL);
 
-			// ¸ß¶È
-			CreateWindowEx(0, TEXT("STATIC"), TEXT("¸ß¶È:"), WS_CHILD | WS_VISIBLE,
+			CreateWindowEx(0, TEXT("STATIC"), TEXT("é«˜åº¦:"), WS_CHILD | WS_VISIBLE,
 			               panelPadding + labelWidth + colSpacing + editWidth + colSpacing, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_HEIGHT_LABEL, hInstance, NULL);
 			g_hPropHeightEdit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
 			                                   panelPadding + labelWidth + colSpacing + editWidth + colSpacing + labelWidth + colSpacing, currentY, editWidth, controlHeight, hwnd, (HMENU)IDC_PROP_HEIGHT_EDIT, hInstance, NULL);
 			currentY += rowSpacing;
 
-			// ÎÄ±¾/Õ¼Î»·û
-			CreateWindowEx(0, TEXT("STATIC"), TEXT("ÎÄ±¾:"), WS_CHILD | WS_VISIBLE,
+			CreateWindowEx(0, TEXT("STATIC"), TEXT("æ–‡æœ¬:"), WS_CHILD | WS_VISIBLE,
 			               panelPadding, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_TEXT_LABEL, hInstance, NULL);
 			g_hPropTextEdit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL,
 			                                 panelPadding + labelWidth + colSpacing, currentY, longEditWidth, controlHeight, hwnd, (HMENU)IDC_PROP_TEXT_EDIT, hInstance, NULL);
 			currentY += rowSpacing;
 
-			// ±³¾°ÑÕÉ« (R, G, B)
-			CreateWindowEx(0, TEXT("STATIC"), TEXT("±³¾°É«:"), WS_CHILD | WS_VISIBLE,
+			CreateWindowEx(0, TEXT("STATIC"), TEXT("èƒŒæ™¯è‰²:"), WS_CHILD | WS_VISIBLE,
 			               panelPadding, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_BG_R_LABEL, hInstance, NULL);
 			g_hPropBgR_Edit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
 			                                 panelPadding + labelWidth + colSpacing, currentY, colorEditWidth, controlHeight, hwnd, (HMENU)IDC_PROP_BG_R_EDIT, hInstance, NULL);
@@ -1068,8 +1031,7 @@ LRESULT CALLBACK CodePropertiesPanelProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 			                                 panelPadding + labelWidth + colSpacing + (colorEditWidth + colSpacing) * 2, currentY, colorEditWidth, controlHeight, hwnd, (HMENU)IDC_PROP_BG_B_EDIT, hInstance, NULL);
 			currentY += rowSpacing;
 
-			// ÎÄ±¾ÑÕÉ« (R, G, B)
-			CreateWindowEx(0, TEXT("STATIC"), TEXT("ÎÄ±¾É«:"), WS_CHILD | WS_VISIBLE,
+			CreateWindowEx(0, TEXT("STATIC"), TEXT("æ–‡æœ¬è‰²:"), WS_CHILD | WS_VISIBLE,
 			               panelPadding, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_TEXT_R_LABEL, hInstance, NULL);
 			g_hPropTextR_Edit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
 			                                   panelPadding + labelWidth + colSpacing, currentY, colorEditWidth, controlHeight, hwnd, (HMENU)IDC_PROP_TEXT_R_EDIT, hInstance, NULL);
@@ -1079,54 +1041,184 @@ LRESULT CALLBACK CodePropertiesPanelProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 			                                   panelPadding + labelWidth + colSpacing + (colorEditWidth + colSpacing) * 2, currentY, colorEditWidth, controlHeight, hwnd, (HMENU)IDC_PROP_TEXT_B_EDIT, hInstance, NULL);
 			currentY += rowSpacing;
 
-			// ×ÖÌå´óĞ¡
-			CreateWindowEx(0, TEXT("STATIC"), TEXT("×ÖÌå´óĞ¡:"), WS_CHILD | WS_VISIBLE,
+			CreateWindowEx(0, TEXT("STATIC"), TEXT("å­—ä½“å¤§å°:"), WS_CHILD | WS_VISIBLE,
 			               panelPadding, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_FONT_SIZE_LABEL, hInstance, NULL);
 			g_hPropFontSize_Edit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
 			                                      panelPadding + labelWidth + colSpacing, currentY, editWidth, controlHeight, hwnd, (HMENU)IDC_PROP_FONT_SIZE_EDIT, hInstance, NULL);
 			currentY += rowSpacing;
 
+			CreateWindowEx(0, TEXT("STATIC"), TEXT("æœ€å°å€¼:"), WS_CHILD | WS_VISIBLE,
+			               panelPadding, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_MIN_VALUE_LABEL, hInstance, NULL);
+			g_hPropMinValue_Edit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
+			                                      panelPadding + labelWidth + colSpacing, currentY, editWidth, controlHeight, hwnd, (HMENU)IDC_PROP_MIN_VALUE_EDIT, hInstance, NULL);
+			currentY += rowSpacing;
 
-			// È·¶¨°´Å¥
+			CreateWindowEx(0, TEXT("STATIC"), TEXT("æœ€å¤§å€¼:"), WS_CHILD | WS_VISIBLE,
+			               panelPadding, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_MAX_VALUE_LABEL, hInstance, NULL);
+			g_hPropMaxValue_Edit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
+			                                      panelPadding + labelWidth + colSpacing, currentY, editWidth, controlHeight, hwnd, (HMENU)IDC_PROP_MAX_VALUE_EDIT, hInstance, NULL);
+			currentY += rowSpacing;
+
+			CreateWindowEx(0, TEXT("STATIC"), TEXT("å½“å‰å€¼:"), WS_CHILD | WS_VISIBLE,
+			               panelPadding, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_CURRENT_VALUE_LABEL, hInstance, NULL);
+			g_hPropCurrentValue_Edit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
+			                           panelPadding + labelWidth + colSpacing, currentY, editWidth, controlHeight, hwnd, (HMENU)IDC_PROP_CURRENT_VALUE_EDIT, hInstance, NULL);
+			currentY += rowSpacing;
+
+			*/
 			g_hPropConfirmButton = CreateWindowEx(
 			                           0,
 			                           TEXT("BUTTON"),
-			                           TEXT("È·¶¨"),
+			                           TEXT("ç¡®å®š"),
 			                           WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-			                           panelPadding + labelWidth + colSpacing, currentY + 10, // ·ÅÖÃÔÚÎÄ±¾±à¼­¿òÏÂ·½£¬¶îÍâ¼Óµã¼ä¾à
-			                           80, 30, // °´Å¥´óĞ¡
-			                           hwnd, // ¸¸´°¿Ú¾ä±ú (ÏÖÔÚÊÇ CodePropertiesPanelProc ×ÔÉíµÄ hwnd)
+			                           panelPadding + labelWidth + colSpacing, currY + 10,
+			                           80, 30,
+			                           hwnd,
 			                           (HMENU)IDC_PROP_CONFIRM_BUTTON,
 			                           hInstance,
 			                           NULL
 			                       );
+
+			CreateWindowEx(0, TEXT("STATIC"), TEXT("ç”Ÿæˆçš„ Objective-C ä»£ç "), WS_CHILD | WS_VISIBLE | SS_CENTER,
+			               0, 5, 550, 20, hwnd, NULL, hInstance, NULL);
+
+			g_hCodeEdit = CreateWindowEx(
+			                  0,
+			                  TEXT("EDIT"),
+			                  TEXT("// ä»£ç å°†åœ¨è¿™é‡Œç”Ÿæˆï¼Œå¹¶è°ƒç”¨ä½ çš„ csm å·¥å‚æ–¹æ³•...\r\n// ä¾‹å¦‚ï¼š[UIViewController createButtonWithFrame:...]\r\n\r\n"),
+			                  WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_HSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | ES_AUTOHSCROLL,
+			                  panelPadding, 30,
+			                  550 - (2 * panelPadding), 400,
+			                  hwnd,
+			                  (HMENU)IDC_CODE_DISPLAY_EDIT,
+			                  hInstance,
+			                  NULL
+			              );
+			SetWindowTheme(g_hCodeEdit, L"DarkMode_Explorer", nullptr);
+
 			break;
 		}
 		case WM_SIZE: {
-			// µ± CodePropertiesPanelProc ×ÔÉí´óĞ¡¸Ä±äÊ±£¬µ÷ÕûÆäÄÚ²¿×Ó¿Ø¼şµÄÎ»ÖÃºÍ´óĞ¡
 			RECT rc;
 			GetClientRect(hwnd, &rc);
-			int panelWidth = rc.right - rc.left;
-			// int panelHeight = rc.bottom - rc.top; // Not used for this fixed layout
+			int panelheight = rc.bottom - rc.top;
+			int totalPropertiesHeight = currY + 50; // å‡è®¾å±æ€§é¢æ¿å†…å®¹æ€»é«˜
+			SCROLLINFO si = {0};
+			si.cbSize = sizeof(SCROLLINFO);
+			si.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
+			si.nMin = 0;
+			si.nMax = totalPropertiesHeight;
+			si.nPage = panelheight - 10;
+			SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
 
-			// µ÷Õû´úÂë±à¼­¿ò
-			MoveWindow(g_hCodeEdit, panelPadding, 30, panelWidth - (2 * panelPadding), 400, TRUE);
+			MoveWindow(g_hCodeEdit, panelPadding, 30, (rc.right - rc.left) - (2 * panelPadding), 400, TRUE);
+			break;
+		}
+		case WM_VSCROLL: {
 
-			// ÊôĞÔ¿Ø¼şµÄÎ»ÖÃÊÇ¹Ì¶¨µÄ£¬²»ĞèÒªÔÚ WM_SIZE ÖĞµ÷Õû£¬ÒòÎªËüÃÇÊÇÏà¶ÔÓÚ¸¸´°¿ÚµÄ¹Ì¶¨Æ«ÒÆ
-			// Èç¹ûĞèÒªÊôĞÔÃæ°åÒ²ÏìÓ¦Ê½²¼¾Ö£¬ÔòĞèÒªÔÚÕâÀïÖØĞÂ¼ÆËãËùÓĞÊôĞÔ¿Ø¼şµÄ×ø±ê
+			int nScrollCode = LOWORD(wParam);
+			int nPos = HIWORD(wParam); // ä»…å¯¹ SB_THUMBTRACK å’Œ SB_THUMBPOSITION æœ‰æ•ˆ
+
+			SCROLLINFO si;
+			si.cbSize = sizeof(si);
+			si.fMask = SIF_ALL; // è·å–æ‰€æœ‰æ»šåŠ¨æ¡ä¿¡æ¯
+
+			GetScrollInfo(hwnd, SB_VERT, &si);
+			int oldPos = si.nPos; // å­˜å‚¨å½“å‰ä½ç½®
+
+			switch (nScrollCode) {
+				case SB_TOP:
+					si.nPos = si.nMin;
+					break;        // æ»šåŠ¨åˆ°é¡¶éƒ¨
+				case SB_BOTTOM:
+					si.nPos = si.nMax;
+					break;       // æ»šåŠ¨åˆ°åº•éƒ¨
+				case SB_LINEUP:
+					si.nPos -= 10;
+					break;           // å‘ä¸Šæ»šåŠ¨ä¸€è¡Œ (ä»»æ„10åƒç´ )
+				case SB_LINEDOWN:
+					si.nPos += 10;
+					break;         // å‘ä¸‹æ»šåŠ¨ä¸€è¡Œ
+				case SB_PAGEUP:
+					si.nPos -= si.nPage;
+					break;   // å‘ä¸Šæ»šåŠ¨ä¸€é¡µ
+				case SB_PAGEDOWN:
+					si.nPos += si.nPage;
+					break; // å‘ä¸‹æ»šåŠ¨ä¸€é¡µ
+				case SB_THUMBTRACK: // ç”¨æˆ·æ­£åœ¨æ‹–åŠ¨æ»‘å—
+				case SB_THUMBPOSITION: // ç”¨æˆ·é‡Šæ”¾äº†æ»‘å—
+					si.nPos = nPos; // è®¾ç½®ä½ç½®ä¸ºæ»‘å—æ‰€åœ¨ä½ç½®
+					break;
+			}
+
+			// å°†æ–°ä½ç½®é™åˆ¶åœ¨æœ‰æ•ˆèŒƒå›´å†…
+			si.nPos = max(si.nMin, min(si.nPos, si.nMax));
+			if (g_scrollPos < si.nMin) {
+				g_scrollPos = si.nMin;
+			}
+			if (g_scrollPos > si.nMax) {
+				g_scrollPos = si.nMax;
+			}
+
+
+			// å¦‚æœä½ç½®å‘ç”Ÿå˜åŒ–ï¼Œæ›´æ–°æ»šåŠ¨æ¡å’Œå†…å®¹
+			if (si.nPos != oldPos) {
+				SetScrollInfo(hwnd, SB_VERT, &si, TRUE); // æ›´æ–°æ»šåŠ¨æ¡ä½ç½®
+				movecode(hwnd);
+				g_scrollPos = si.nPos; // æ›´æ–°æˆ‘ä»¬çš„å…¨å±€æ»šåŠ¨ä½ç½®
+				InvalidateRect(hwnd, NULL, FALSE);
+
+				// ä½¿å·¥å…·æ é¢æ¿å¤±æ•ˆï¼Œç¡®ä¿å®ƒé‡æ–°ç»˜åˆ¶
+
+			}
+			break;
+		}
+		case WM_MOUSEWHEEL: {
+
+			// è·å–æ»šè½®æ»šåŠ¨é‡
+			short wheelDelta = HIWORD(wParam);
+
+			// æ ¹æ®æ»šåŠ¨é‡è°ƒæ•´æ»šåŠ¨ä½ç½®
+			// wheelDelta é€šå¸¸æ˜¯ 120 çš„å€æ•°
+			int yDelta = -wheelDelta / 3;
+
+			int oldScrollPos = g_scrollPos;
+			g_scrollPos += yDelta;
+
+			SCROLLINFO si = {0};
+			si.cbSize = sizeof(SCROLLINFO);
+			si.fMask = SIF_RANGE | SIF_PAGE;
+			GetScrollInfo(hwnd, SB_VERT, &si);
+
+			// é™åˆ¶æ»šåŠ¨ä½ç½®åœ¨æœ‰æ•ˆèŒƒå›´å†…
+			int maxScroll = si.nMax - si.nPage + 1; // æ»šåŠ¨æ¡æœ€å¤§ä½ç½®æ˜¯ max - page + 1
+			if (g_scrollPos < 0) g_scrollPos = 0;
+			if (g_scrollPos > maxScroll) g_scrollPos = maxScroll;
+
+			if (g_scrollPos != oldScrollPos) {
+				// æ›´æ–°æ»šåŠ¨æ¡ä½ç½®
+
+
+				SetScrollPos(hwnd, SB_VERT, g_scrollPos, TRUE);
+
+
+				movecode(hwnd);
+				// å¼ºåˆ¶é‡ç»˜ï¼Œç§»åŠ¨å­æ§ä»¶
+				InvalidateRect(hwnd, NULL, FALSE);
+			}
+
 			break;
 		}
 		case WM_COMMAND: {
-			// ½«×Ó¿Ø¼şµÄ WM_COMMAND ÏûÏ¢×ª·¢¸ø¸¸´°¿Ú (Ö÷´°¿Ú)
 			SendMessage(GetParent(hwnd), WM_COMMAND, wParam, lParam);
 			break;
 		}
 		case WM_CTLCOLORSTATIC:
 		case WM_CTLCOLOREDIT: {
-			HDC hdd = (HDC)wParam;
-			SetTextColor(hdd, RGB(255, 255, 255));
-			SetBkColor(hdd, RGB(66, 66, 66));
-			return bgbrush;
+			HDC hdc = (HDC)wParam;
+			SetTextColor(hdc, RGB(255, 255, 255));
+			SetBkColor(hdc, RGB(30, 30, 30));
+			return (INT_PTR)g_hbrPropertiesPanelBackground;
 		}
 		default:
 			return DefWindowProc(hwnd, msg, wParam, lParam);
@@ -1134,368 +1226,47 @@ LRESULT CALLBACK CodePropertiesPanelProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 	return 0;
 }
 
-/*
-// --- ¸¨Öúº¯ÊıÊµÏÖ ---
+void DeleteSelectedElement() {
 
-// ½« RGB ÑÕÉ«Öµ×ª»»Îª Objective-C µÄ UIColor ´úÂë×Ö·û´® (char* °æ±¾£¬ÓÃÓÚ Objective-C ´úÂë×ÖÃæÁ¿)
-void RgbToUIColorCode(int r, int g, int b, char* buffer, size_t bufferSize) {
-	// È·±£ÑÕÉ«ÖµÔÚ 0-255 ·¶Î§ÄÚ
-	r = (r < 0) ? 0 : ((r > 255) ? 255 : r);
-	g = (g < 0) ? 0 : ((g > 255) ? 255 : g);
-	b = (b < 0) ? 0 : ((b > 255) ? 255 : b);
-
-	sprintf_s(buffer, bufferSize, "[UIColor colorWithRed:%.3f green:%.3f blue:%.3f alpha:1.0]",
-	          (float)r / 255.0f, (float)g / 255.0f, (float)b / 255.0f);
-}
-
-// Éú³É Objective-C °´Å¥´´½¨´úÂë (Êä³öµ½ WCHAR »º³åÇø)
-void GenerateObjCButtonCode(WCHAR* codeBuffer, size_t bufferSize, iOSUIElement * element) {
-	char bgColorCode_mbcs[100]; // Multi-byte char for background color
-	char textColorCode_mbcs[100]; // Multi-byte char for text color
-
-	RgbToUIColorCode(element->bgColorR, element->bgColorG, element->bgColorB, bgColorCode_mbcs, sizeof(bgColorCode_mbcs));
-	RgbToUIColorCode(element->textColorR, element->textColorG, element->textColorB, textColorCode_mbcs, sizeof(textColorCode_mbcs));
-
-	// Convert bgColorCode_mbcs (char*) to WCHAR for swprintf_s
-	WCHAR bgColorCode_wc[100];
-	// Calculate required buffer size for wide characters (including null terminator)
-	int wc_len_bg = MultiByteToWideChar(CP_UTF8, 0, bgColorCode_mbcs, -1, NULL, 0);
-	if (wc_len_bg > 0 && wc_len_bg <= _countof(bgColorCode_wc)) {
-		MultiByteToWideChar(CP_UTF8, 0, bgColorCode_mbcs, -1, bgColorCode_wc, wc_len_bg);
-	} else {
-		bgColorCode_wc[0] = L'\0'; // Ensure null termination on failure
+	if (g_selectedElementIndex == -1) {
+		return; // æ²¡æœ‰é€‰ä¸­çš„å…ƒç´ ï¼Œç›´æ¥è¿”å›
 	}
 
-	// Convert textColorCode_mbcs (char*) to WCHAR for swprintf_s
-	WCHAR textColorCode_wc[100];
-	int wc_len_text = MultiByteToWideChar(CP_UTF8, 0, textColorCode_mbcs, -1, NULL, 0);
-	if (wc_len_text > 0 && wc_len_text <= _countof(textColorCode_wc)) {
-		MultiByteToWideChar(CP_UTF8, 0, textColorCode_mbcs, -1, textColorCode_wc, wc_len_text);
-	} else {
-		textColorCode_wc[0] = L'\0'; // Ensure null termination on failure
-	}
-
-
-	// Step 1: ½« WCHAR ÎÄ±¾×ª»»Îª UTF-8 ±àÂëµÄ char*
-	char text_utf8[512]; // ×ã¹»´óµÄ»º³åÇøÀ´´æ´¢ UTF-8 ±àÂëµÄÖĞÎÄ
-	int utf8_len = WideCharToMultiByte(CP_UTF8, 0, element->text, -1, NULL, 0, NULL, NULL);
-	if (utf8_len > 0 && utf8_len <= sizeof(text_utf8)) {
-		WideCharToMultiByte(CP_UTF8, 0, element->text, -1, text_utf8, utf8_len, NULL, NULL);
-	} else {
-		text_utf8[0] = '\0'; // ×ª»»Ê§°Ü»ò»º³åÇø²»×ã£¬Çå¿Õ×Ö·û´®
-	}
-
-	// Step 2: ½« UTF-8 ±àÂëµÄ char* ×ª»»»Ø WCHAR (ÓÃÓÚ swprintf_s µÄ %ls)
-	WCHAR text_wc[512]; // ×ã¹»´óµÄ»º³åÇøÀ´´æ´¢×ª»»ºóµÄ WCHAR
-	int wc_text_len = MultiByteToWideChar(CP_UTF8, 0, text_utf8, -1, NULL, 0);
-	if (wc_text_len > 0 && wc_text_len <= _countof(text_wc)) {
-		MultiByteToWideChar(CP_UTF8, 0, text_utf8, -1, text_wc, wc_text_len);
-	} else {
-		text_wc[0] = L'\0'; // ×ª»»Ê§°Ü»ò»º³åÇø²»×ã£¬Çå¿Õ×Ö·û´®
-	}
-
-	// Ê¹ÓÃ swprintf_s Ğ´Èë WCHAR »º³åÇø£¬ÏÖÔÚÊ¹ÓÃ %ls (Ğ¡Ğ´L£¬Ğ¡Ğ´S)
-	// ÒòÎª text_wc, bgColorCode_wc, textColorCode_wc ¶¼ÊÇ wchar_t* ÀàĞÍ
-	swprintf_s(codeBuffer, bufferSize,
-	           L"    UIButton *myButton%d = [UIViewController createButtonWithFrame:CGRectMake(%d, %d, %d, %d)\r\n"
-	           L"                                                            title:@\"%ls\"\r\n" // °´Å¥µÄ±êÌâ£¬Ê¹ÓÃ %ls
-	           L"                                                          bgColor:%ls\r\n" // ±³¾°É«£¬ÏÖÔÚÊ¹ÓÃ %ls
-	           L"                                                        textColor:%ls\r\n" // ÎÄ±¾ÑÕÉ«£¬ÏÖÔÚÊ¹ÓÃ %ls
-	           L"                                                             font:[UIFont systemFontOfSize:%.1f] // ×ÖÌå´óĞ¡\r\n"
-	           L"                                                      borderWidth:0.0 // Ê¾Àı±ß¿ò¿í¶È\r\n"
-	           L"                                                      borderColor:nil // Ê¾Àı±ß¿òÑÕÉ«\r\n"
-	           L"                                                           target:self\r\n"
-	           L"                                                         selector:@selector(buttonTapped:)]; // Ê¾Àıselector\r\n"
-	           L"    [self.view addSubview:myButton%d]; // Ïàµ±ÓÚ Win32 µÄ WS_CHILD ÑùÊ½ºÍ¸¸´°¿Ú¾ä±ú\r\n\r\n",
-	           element->id, element->original_x, element->original_y, element->original_width, element->original_height,
-	           text_wc, bgColorCode_wc, textColorCode_wc, element->fontSize, element->id
-	          );
-}
-
-// Éú³É Objective-C ÎÄ±¾¿ò´´½¨´úÂë (Êä³öµ½ WCHAR »º³åÇø)
-void GenerateObjCTextFieldCode(WCHAR* codeBuffer, size_t bufferSize, iOSUIElement * element) {
-	char textColorCode_mbcs[100];
-	RgbToUIColorCode(element->textColorR, element->textColorG, element->textColorB, textColorCode_mbcs, sizeof(textColorCode_mbcs));
-
-	// Convert textColorCode_mbcs (char*) to WCHAR for swprintf_s
-	WCHAR textColorCode_wc[100];
-	int wc_len_text = MultiByteToWideChar(CP_UTF8, 0, textColorCode_mbcs, -1, NULL, 0);
-	if (wc_len_text > 0 && wc_len_text <= _countof(textColorCode_wc)) {
-		MultiByteToWideChar(CP_UTF8, 0, textColorCode_mbcs, -1, textColorCode_wc, wc_len_text);
-	} else {
-		textColorCode_wc[0] = L'\0'; // Ensure null termination on failure
-	}
-
-	// Step 1: ½« WCHAR ÎÄ±¾×ª»»Îª UTF-8 ±àÂëµÄ char*
-	char text_utf8[512]; // ×ã¹»´óµÄ»º³åÇøÀ´´æ´¢ UTF-8 ±àÂëµÄÖĞÎÄ
-	int utf8_len = WideCharToMultiByte(CP_UTF8, 0, element->text, -1, NULL, 0, NULL, NULL);
-	if (utf8_len > 0 && utf8_len <= sizeof(text_utf8)) {
-		WideCharToMultiByte(CP_UTF8, 0, element->text, -1, text_utf8, utf8_len, NULL, NULL);
-	} else {
-		text_utf8[0] = L'\0'; // ×ª»»Ê§°Ü»ò»º³åÇø²»×ã£¬Çå¿Õ×Ö·û´®
-	}
-
-	// Step 2: ½« UTF-8 ±àÂëµÄ char* ×ª»»»Ø WCHAR (ÓÃÓÚ swprintf_s µÄ %ls)
-	WCHAR text_wc[512]; // ×ã¹»´óµÄ»º³åÇøÀ´´æ´¢×ª»»ºóµÄ WCHAR
-	int wc_len = MultiByteToWideChar(CP_UTF8, 0, text_utf8, -1, NULL, 0);
-	if (wc_len > 0 && wc_len <= _countof(text_wc)) {
-		MultiByteToWideChar(CP_UTF8, 0, text_utf8, -1, text_wc, wc_len);
-	} else {
-		text_wc[0] = L'\0'; // ×ª»»Ê§°Ü»ò»º³åÇø²»×ã£¬Çå¿Õ×Ö·û´®
-	}
-
-	// **ĞŞ¸ÄÕâÀï£ºÊ¹ÓÃ text ÊôĞÔÀ´ÉèÖÃÎÄ±¾×Ö¶ÎµÄ³õÊ¼ÄÚÈİ£¬²¢Ê¹ÓÃ %ls**
-	swprintf_s(codeBuffer, bufferSize,
-	           L"    UITextField *myTextField%d = [UIViewController createTextFieldWithFrame:CGRectMake(%d, %d, %d, %d)\r\n"
-	           L"                                                                   text:@\"%ls\"\r\n" // Ê¹ÓÃ text ÊôĞÔÉèÖÃ³õÊ¼ÎÄ±¾£¬Ê¹ÓÃ %ls
-	           L"                                                            borderWidth:1.0 // Ê¾Àı\r\n"
-	           L"                                                            borderColor:[UIColor lightGrayColor].CGColor // Ê¾Àı\r\n"
-	           L"                                                        clearButtonMode:UITextFieldViewModeWhileEditing // Ê¾Àı\r\n"
-	           L"                                                          returnKeyType:UIReturnKeyDone // Ê¾Àı\r\n"
-	           L"                                                                   font:[UIFont systemFontOfSize:%.1f] // ×ÖÌå´óĞ¡\r\n"
-	           L"                                                     keyboardAppearance:UIKeyboardAppearanceDefault]; // Ê¾Àı\r\n"
-	           L"    // myTextField%d.delegate = self; // Èç¹ûĞèÒªÉèÖÃÎ¯ÍĞ\r\n"
-	           L"    [self.view addSubview:myTextField%d];\r\n\r\n",
-	           element->id, element->original_x, element->original_y, element->original_width, element->original_height,
-	           text_wc, element->fontSize, element->id, element->id
-	          );
-}
-
-// Éú³É Objective-C ±í¸ñÊÓÍ¼´´½¨´úÂë (Êä³öµ½ WCHAR »º³åÇø)
-void GenerateObjCTableViewCode(WCHAR* codeBuffer, size_t bufferSize, iOSUIElement * element) {
-	// **×¢Òâ£ºÕâÀïÊ¹ÓÃ original_x/y/width/height À´Éú³É´úÂë£¬È·±£´úÂëÊÇ»ùÓÚÔ­Ê¼±ÈÀıµÄ**
-	swprintf_s(codeBuffer, bufferSize,
-	           L"    UITableView *myTableView%d = [UIViewController createTableViewWithFrame:CGRectMake(%d, %d, %d, %d)\r\n"
-	           L"                                                                    style:UITableViewStylePlain // Ê¾Àı\r\n"
-	           L"                                                                rowHeight:44.0 // Ê¾Àı\r\n"
-	           L"                                                              borderWidth:1.0 // Ê¾Àı\r\n"
-	           L"                                                              borderColor:[UIColor lightGrayColor].CGColor // Ê¾Àı\r\n"
-	           L"                                                                cellIdent:@\"MyCellIdentifier%d\" // Ê¾Àı\r\n"
-	           L"                                                               dataSource:self // Ê¾Àı\r\n"
-	           L"                                                                 delegate:self]; // Ê¾Àı\r\n"
-	           L"    [self.view addSubview:myTableView%d];\r\n\r\n",
-	           element->id, element->original_x, element->original_y, element->original_width, element->original_height,
-	           element->id, // cellIdent ²ÎÊı£¬Ê¹ÓÃIDÈ·±£Î¨Ò»ĞÔ
-	           element->id
-	          );
-}
-
-// ¸üĞÂÊôĞÔÃæ°åÏÔÊ¾
-void UpdatePropertiesPanel(void) {
-	WCHAR buffer[256];
-	if (g_selectedElementIndex != -1) {
-		iOSUIElement *element = &g_iOSUIElements[g_selectedElementIndex];
-
-		// ÉèÖÃÀàĞÍ±êÇ©
-		SetWindowTextW(g_hPropTypeStatic, element->type);
-
-		// ÉèÖÃ X, Y, Width, Height (ÏÔÊ¾µ±Ç°Êµ¼ÊäÖÈ¾µÄ³ß´ç£¬²»ÊÇ original_x)
-		swprintf_s(buffer, _countof(buffer), L"%d", element->x);
-		SetWindowTextW(g_hPropXEdit, buffer);
-		swprintf_s(buffer, _countof(buffer), L"%d", element->y);
-		SetWindowTextW(g_hPropYEdit, buffer);
-		swprintf_s(buffer, _countof(buffer), L"%d", element->width);
-		SetWindowTextW(g_hPropWidthEdit, buffer);
-		swprintf_s(buffer, _countof(buffer), L"%d", element->height);
-		SetWindowTextW(g_hPropHeightEdit, buffer);
-
-		// ÉèÖÃ±³¾°ÑÕÉ«
-		swprintf_s(buffer, _countof(buffer), L"%d", element->bgColorR);
-		SetWindowTextW(g_hPropBgR_Edit, buffer);
-		swprintf_s(buffer, _countof(buffer), L"%d", element->bgColorG);
-		SetWindowTextW(g_hPropBgG_Edit, buffer);
-		swprintf_s(buffer, _countof(buffer), L"%d", element->bgColorB);
-		SetWindowTextW(g_hPropBgB_Edit, buffer);
-
-		// ÉèÖÃÎÄ±¾ÑÕÉ«
-		swprintf_s(buffer, _countof(buffer), L"%d", element->textColorR);
-		SetWindowTextW(g_hPropTextR_Edit, buffer);
-		swprintf_s(buffer, _countof(buffer), L"%d", element->textColorG);
-		SetWindowTextW(g_hPropTextG_Edit, buffer);
-		swprintf_s(buffer, _countof(buffer), L"%d", element->textColorB);
-		SetWindowTextW(g_hPropTextB_Edit, buffer);
-
-		// ÉèÖÃ×ÖÌå´óĞ¡
-		swprintf_s(buffer, _countof(buffer), L"%.1f", element->fontSize);
-		SetWindowTextW(g_hPropFontSize_Edit, buffer);
-
-
-		// ÆôÓÃËùÓĞ×ø±êºÍ³ß´ç±à¼­¿ò
-		EnableWindow(g_hPropXEdit, TRUE);
-		EnableWindow(g_hPropYEdit, TRUE);
-		EnableWindow(g_hPropWidthEdit, TRUE);
-		EnableWindow(g_hPropHeightEdit, TRUE);
-		EnableWindow(g_hPropBgR_Edit, TRUE);
-		EnableWindow(g_hPropBgG_Edit, TRUE);
-		EnableWindow(g_hPropBgB_Edit, TRUE);
-		EnableWindow(g_hPropTextR_Edit, TRUE);
-		EnableWindow(g_hPropTextG_Edit, TRUE);
-		EnableWindow(g_hPropTextB_Edit, TRUE);
-		EnableWindow(g_hPropFontSize_Edit, TRUE);
-
-
-		// ¸ù¾İÔªËØÀàĞÍÖÇÄÜÏÔÊ¾ÎÄ±¾/Õ¼Î»·û±à¼­¿òºÍÏà¹ØÑÕÉ«ÊôĞÔ
-		if (wcscmp(element->type, L"Button") == 0) {
-			SetWindowTextW(GetDlgItem(hCodeOutputPanel, IDC_PROP_TEXT_LABEL), L"±êÌâ:"); // Ê¹ÓÃGetDlgItem»ñÈ¡±êÇ©¾ä±ú
-			SetWindowTextW(g_hPropTextEdit, element->text);
-			EnableWindow(g_hPropTextEdit, TRUE);
-			ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_TEXT_LABEL), SW_SHOW);
-			ShowWindow(g_hPropTextEdit, SW_SHOW);
-
-			// °´Å¥µÄ±³¾°É«ºÍÎÄ±¾É«¶¼¿É±à¼­
-			ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_BG_R_LABEL), SW_SHOW);
-			ShowWindow(g_hPropBgR_Edit, SW_SHOW);
-			ShowWindow(g_hPropBgG_Edit, SW_SHOW);
-			ShowWindow(g_hPropBgB_Edit, SW_SHOW);
-
-			ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_TEXT_R_LABEL), SW_SHOW);
-			ShowWindow(g_hPropTextR_Edit, SW_SHOW);
-			ShowWindow(g_hPropTextG_Edit, SW_SHOW);
-			ShowWindow(g_hPropTextB_Edit, SW_SHOW);
-
-			ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_FONT_SIZE_LABEL), SW_SHOW);
-			ShowWindow(g_hPropFontSize_Edit, SW_SHOW);
-
-		} else if (wcscmp(element->type, L"TextField") == 0) {
-			SetWindowTextW(GetDlgItem(hCodeOutputPanel, IDC_PROP_TEXT_LABEL), L"ÎÄ±¾ÄÚÈİ:"); // ±êÇ©¸ÄÎª¡°ÎÄ±¾ÄÚÈİ¡±
-			SetWindowTextW(g_hPropTextEdit, element->text);
-			EnableWindow(g_hPropTextEdit, TRUE);
-			ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_TEXT_LABEL), SW_SHOW);
-			ShowWindow(g_hPropTextEdit, SW_SHOW);
-
-			// ÎÄ±¾¿òÍ¨³£Ö»ÓĞÎÄ±¾ÑÕÉ«¿É±à¼­£¬±³¾°É«Ò»°ãÊÇÍ¸Ã÷»ò¹Ì¶¨°×É«
-			ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_BG_R_LABEL), SW_HIDE);
-			ShowWindow(g_hPropBgR_Edit, SW_HIDE);
-			ShowWindow(g_hPropBgG_Edit, SW_HIDE);
-			ShowWindow(g_hPropBgB_Edit, SW_HIDE);
-			EnableWindow(g_hPropBgR_Edit, FALSE);
-			EnableWindow(g_hPropBgG_Edit, FALSE);
-			EnableWindow(g_hPropBgB_Edit, FALSE);
-
-
-			ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_TEXT_R_LABEL), SW_SHOW);
-			ShowWindow(g_hPropTextR_Edit, SW_SHOW);
-			ShowWindow(g_hPropTextG_Edit, SW_SHOW);
-			ShowWindow(g_hPropTextB_Edit, SW_SHOW);
-
-			ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_FONT_SIZE_LABEL), SW_SHOW);
-			ShowWindow(g_hPropFontSize_Edit, SW_SHOW);
-
-		} else { // TableView »òÆäËûÃ»ÓĞÎÄ±¾ÊôĞÔµÄÀàĞÍ
-			SetWindowTextW(GetDlgItem(hCodeOutputPanel, IDC_PROP_TEXT_LABEL), L""); // Çå¿Õ±êÇ©ÎÄ±¾
-			SetWindowTextW(g_hPropTextEdit, TEXT("")); // Çå¿Õ±à¼­¿ò
-			EnableWindow(g_hPropTextEdit, FALSE); // ½ûÓÃ
-			ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_TEXT_LABEL), SW_HIDE); // Òş²Ø±êÇ©
-			ShowWindow(g_hPropTextEdit, SW_HIDE); // Òş²Ø±à¼­¿ò
-
-			// Òş²Ø²¢½ûÓÃËùÓĞÑÕÉ«ºÍ×ÖÌå´óĞ¡ÊôĞÔ
-			ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_BG_R_LABEL), SW_HIDE);
-			ShowWindow(g_hPropBgR_Edit, SW_HIDE);
-			ShowWindow(g_hPropBgG_Edit, SW_HIDE);
-			ShowWindow(g_hPropBgB_Edit, SW_HIDE);
-			EnableWindow(g_hPropBgR_Edit, FALSE);
-			EnableWindow(g_hPropBgG_Edit, FALSE);
-			EnableWindow(g_hPropBgB_Edit, FALSE);
-
-			ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_TEXT_R_LABEL), SW_HIDE);
-			ShowWindow(g_hPropTextR_Edit, SW_HIDE);
-			ShowWindow(g_hPropTextG_Edit, SW_HIDE);
-			ShowWindow(g_hPropTextB_Edit, SW_HIDE);
-			EnableWindow(g_hPropTextR_Edit, FALSE);
-			EnableWindow(g_hPropTextG_Edit, FALSE);
-			EnableWindow(g_hPropTextB_Edit, FALSE);
-
-			ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_FONT_SIZE_LABEL), SW_HIDE);
-			ShowWindow(g_hPropFontSize_Edit, SW_HIDE);
-			EnableWindow(g_hPropFontSize_Edit, FALSE);
+	int elementIndex = -1;
+	// æ‰¾åˆ°é€‰ä¸­å…ƒç´ åœ¨æ•°ç»„ä¸­çš„ç´¢å¼•
+	for (int i = 0; i < g_iOSUIElementCount; ++i) {
+		if (i == g_selectedElementIndex) {
+			elementIndex = i;
+			break;
 		}
-		// Ñ¡ÖĞÔªËØÊ±ÆôÓÃÈ·¶¨°´Å¥
-		EnableWindow(g_hPropConfirmButton, TRUE);
+	}
 
-	} else {
-		// Î´Ñ¡ÖĞÈÎºÎÔªËØ£¬Çå¿Õ²¢½ûÓÃ±à¼­¿ò
-		SetWindowTextW(g_hPropTypeStatic, TEXT("ÎŞÑ¡ÖĞ"));
-		SetWindowTextW(g_hPropXEdit, TEXT(""));
-		SetWindowTextW(g_hPropYEdit, TEXT(""));
-		SetWindowTextW(g_hPropWidthEdit, TEXT(""));
-		SetWindowTextW(g_hPropHeightEdit, TEXT(""));
-		SetWindowTextW(g_hPropTextEdit, TEXT(""));
+	if (elementIndex != -1) {
 
-		SetWindowTextW(g_hPropBgR_Edit, TEXT(""));
-		SetWindowTextW(g_hPropBgG_Edit, TEXT(""));
-		SetWindowTextW(g_hPropBgB_Edit, TEXT(""));
-		SetWindowTextW(g_hPropTextR_Edit, TEXT(""));
-		SetWindowTextW(g_hPropTextG_Edit, TEXT(""));
-		SetWindowTextW(g_hPropTextB_Edit, TEXT(""));
-		SetWindowTextW(g_hPropFontSize_Edit, TEXT(""));
+		// å°†æ•°ç»„ä¸­æ‰€æœ‰åç»­å…ƒç´ å‰ç§»
+		for (int i = elementIndex; i < g_iOSUIElementCount - 1; ++i) {
+			g_iOSUIElements[i] = g_iOSUIElements[i + 1];
 
+		}
 
-		EnableWindow(g_hPropXEdit, FALSE);
-		EnableWindow(g_hPropYEdit, FALSE);
-		EnableWindow(g_hPropWidthEdit, FALSE);
-		EnableWindow(g_hPropHeightEdit, FALSE);
-		EnableWindow(g_hPropTextEdit, FALSE);
+		for (int i = 0; i <= g_iOSUIElementCount - 1; i++) {
+			g_iOSUIElements[i].id = IDC_GENERATED_UI_BASE + i;
+		}
 
-		EnableWindow(g_hPropBgR_Edit, FALSE);
-		EnableWindow(g_hPropBgG_Edit, FALSE);
-		EnableWindow(g_hPropBgB_Edit, FALSE);
-		EnableWindow(g_hPropTextR_Edit, FALSE);
-		EnableWindow(g_hPropTextG_Edit, FALSE);
-		EnableWindow(g_hPropTextB_Edit, FALSE);
-		EnableWindow(g_hPropFontSize_Edit, FALSE);
+		// å‡å°‘å…ƒç´ æ€»æ•°
+		g_iOSUIElementCount--;
 
+		// é‡ç½®é€‰ä¸­å…ƒç´ 
+		g_selectedElementIndex = -1;
 
-		// È·±£ÎÄ±¾±êÇ©ºÍ±à¼­¿òÔÚÎ´Ñ¡ÖĞÊ±Ò²ÏÔÊ¾Ä¬ÈÏ×´Ì¬£¬»òÕßÒş²Ø
-		SetWindowTextW(GetDlgItem(hCodeOutputPanel, IDC_PROP_TEXT_LABEL), L"ÎÄ±¾:"); // »Ö¸´Ä¬ÈÏ±êÇ©
-		ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_TEXT_LABEL), SW_SHOW);
-		ShowWindow(g_hPropTextEdit, SW_SHOW);
+		// æ¸…ç©ºå±æ€§é¢æ¿
+		HideAllPropertiesUIControls();
 
-		// Òş²ØËùÓĞÑÕÉ«ºÍ×ÖÌå´óĞ¡ÊôĞÔ
-		ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_BG_R_LABEL), SW_HIDE);
-		ShowWindow(g_hPropBgR_Edit, SW_HIDE);
-		ShowWindow(g_hPropBgG_Edit, SW_HIDE);
-		ShowWindow(g_hPropBgB_Edit, SW_HIDE);
+		// é‡æ–°ç»˜åˆ¶ç”»å¸ƒ
+		InvalidateRect(g_hCanvasPanel, NULL, TRUE);
 
-		ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_TEXT_R_LABEL), SW_HIDE);
-		ShowWindow(g_hPropTextR_Edit, SW_HIDE);
-		ShowWindow(g_hPropTextG_Edit, SW_HIDE);
-		ShowWindow(g_hPropTextB_Edit, SW_HIDE);
-
-		ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_FONT_SIZE_LABEL), SW_HIDE);
-		ShowWindow(g_hPropFontSize_Edit, SW_HIDE);
-
-
-		// Î´Ñ¡ÖĞÔªËØÊ±½ûÓÃÈ·¶¨°´Å¥
-		EnableWindow(g_hPropConfirmButton, FALSE);
+		UpdateWindow(g_hCanvasPanel);
+		// é‡æ–°ç”Ÿæˆä»£ç 
+		RegenerateAllObjCCode();
 	}
 }
-
-// ÖØĞÂÉú³ÉËùÓĞ Objective-C ´úÂë
-void RegenerateAllObjCCode(void) {
-	WCHAR generatedCodeBuffer[204800]; // ¸ü´óµÄ»º³åÇøÒÔÊÊÓ¦¸ü¶à´úÂë, ¸ü¸ÄÎª WCHAR
-	ZeroMemory(generatedCodeBuffer, sizeof(generatedCodeBuffer)); // ÇåÁã
-
-	wcscat_s(generatedCodeBuffer, _countof(generatedCodeBuffer), L"// ÒıÈëÄãµÄÍ¨ÓÃ UI ¹¤³§Àà±ğÍ·ÎÄ¼ş (csm.h)\r\n");
-	wcscat_s(generatedCodeBuffer, _countof(generatedCodeBuffer), L"#import \"csm.h\" \r\n\r\n");
-	wcscat_s(generatedCodeBuffer, _countof(generatedCodeBuffer), L"// ÔÚÄãµÄ UIViewController µÄ viewDidLoad »òÆäËû·½·¨ÖĞ£º\r\n");
-	wcscat_s(generatedCodeBuffer, _countof(generatedCodeBuffer), L"- (void)setupGeneratedUI {\r\n");
-	wcscat_s(generatedCodeBuffer, _countof(generatedCodeBuffer), L"    // ¼ÙÉè 'screen' ºÍ 'self.view' ÔÚµ±Ç°ÉÏÏÂÎÄ¿ÉÓÃ\r\n");
-	wcscat_s(generatedCodeBuffer, _countof(generatedCodeBuffer), L"    // CGRect screen = [[UIScreen mainScreen] bounds];\\r\\n\\r\\n");
-
-	for (int i = 0; i < g_iOSUIElementCount; i++) {
-		WCHAR elementCode[2048]; // Ã¿¸öÔªËØµÄ´úÂë»º³åÇø, ¸ü¸ÄÎª WCHAR
-		ZeroMemory(elementCode, sizeof(elementCode));
-
-		if (wcscmp(g_iOSUIElements[i].type, L"Button") == 0) {
-			GenerateObjCButtonCode(elementCode, _countof(elementCode), &g_iOSUIElements[i]);
-		} else if (wcscmp(g_iOSUIElements[i].type, L"TextField") == 0) {
-			GenerateObjCTextFieldCode(elementCode, _countof(elementCode), &g_iOSUIElements[i]);
-		} else if (wcscmp(g_iOSUIElements[i].type, L"TableView") == 0) {
-			GenerateObjCTableViewCode(elementCode, _countof(elementCode), &g_iOSUIElements[i]);
-		}
-		wcscat_s(generatedCodeBuffer, _countof(generatedCodeBuffer), elementCode);
-	}
-	wcscat_s(generatedCodeBuffer, _countof(generatedCodeBuffer), L"}\r\n");
-
-	SetWindowTextW(g_hCodeEdit, generatedCodeBuffer); // ÉèÖÃ EDIT ¿Ø¼şµÄÎÄ±¾ (Ê¹ÓÃ WCHAR °æ±¾)
-}*/
