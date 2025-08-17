@@ -7,10 +7,11 @@
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
-#include <commctrl.h>
 #include <uxtheme.h>
 #include <tchar.h>
-
+#include <commctrl.h>
+#include <commdlg.h> // Common Dialogs
+#include <dwmapi.h>
 // --- Global Constants and Macros ---
 #define MAIN_WINDOW_CLASS_NAME TEXT("Win32iOSUIBuilderClass")
 #define MAIN_WINDOW_TITLE      TEXT("我的 iOS UI Builder (Win32) - 统一属性管理")
@@ -66,15 +67,19 @@
 #define IDC_PROP_CURRENT_VALUE_LABEL 1228 // New: Slider current value label
 #define IDC_PROP_CURRENT_VALUE_EDIT  1229 // New: Slider current value edit box
 
-//IDM_DELETE_ELEMENT
-#define IDM_DELETE_ELEMENT 5001
+// Menu Command IDs
+#define IDM_FILE_EXIT       40001
+#define IDM_HELP_ABOUT      40002
+#define IDM_FILE_SAVE		40003
+#define IDM_DELETE_ELEMENT  40004
+#define IDM_COPY_ELEMENT	40005
 
 // Base ID for generated iOS UI elements
 #define IDC_GENERATED_UI_BASE  2000
 
 // Define original canvas dimensions for scaling calculations
-#define CANVAS_INITIAL_WIDTH  393
-#define CANVAS_INITIAL_HEIGHT 852
+#define CANVAS_INITIAL_WIDTH  390
+#define CANVAS_INITIAL_HEIGHT 844
 
 #define BUTTON_SPACING 200
 extern const double CANVAS_ASPECT_RATIO;
@@ -84,6 +89,8 @@ typedef struct UIElementDefinition UIElementDefinition;
 typedef struct iOSUIElement {
 	int id;
 	WCHAR type[50];
+	WCHAR Vname[100];
+	int alignment;
 	int x, y, width, height; // Current drawing dimensions (will be same as original for fixed canvas)
 	int original_x, original_y, original_width, original_height; // Original dimensions (used for code generation and internal logic)
 	WCHAR text[256];
@@ -94,6 +101,7 @@ typedef struct iOSUIElement {
 	float maxValue;
 	float currentValue;
 	int rowHeight;
+	WCHAR linkproc[100];
 	UIElementDefinition* definition; // Pointer to its definition for polymorphic calls
 
 } iOSUIElement;
@@ -129,6 +137,7 @@ typedef struct UIElementDefinition {
 	BOOL hasMaxValue;
 	BOOL hasCurrentValue;
 	BOOL hasRowHeight;
+	BOOL hasAlignment;
 } UIElementDefinition;
 // iOS UI Element structure definition
 
@@ -170,7 +179,7 @@ LRESULT CALLBACK toolpanelproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
 LRESULT CALLBACK CodePropertiesPanelProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 // Helper functions
-void RgbToUIColorCode(int r, int g, int b, char* buffer, size_t bufferSize);
+//void RgbToUIColorCode(int r, int g, int b, char* buffer, size_t bufferSize);
 
 // Generic functions for property panel management
 void HideAllPropertiesUIControls(void); // Hide all property controls
@@ -215,6 +224,7 @@ typedef struct xyh {
 
 typedef enum {
 	IDC_PROP_TYPE = 1201,
+	IDC_PROP_VNAME,
 	IDC_PROP_X,
 	IDC_PROP_Y,
 	IDC_PROP_WIDTH,
@@ -226,11 +236,14 @@ typedef enum {
 	IDC_PROP_MIN_VALUE,
 	IDC_PROP_MAX_VALUE,
 	IDC_PROP_CURRENT_VALUE,
+	IDC_PROP_CONPROC,
+	IDC_PROP_ALIGNMENT,
 	IDC_COUNT
 } idclist ;
 
 typedef enum {
 	IDE_PROP_TYPE = 2401,
+	IDE_PROP_VNAME,
 	IDE_PROP_X,
 	IDE_PROP_Y,
 	IDE_PROP_WIDTH,
@@ -246,6 +259,8 @@ typedef enum {
 	IDE_PROP_MIN_VALUE,
 	IDE_PROP_MAX_VALUE,
 	IDE_PROP_CURRENT_VALUE,
+	IDE_PROP_CONPROC,
+	IDE_PROP_ALIGNMENT,
 	IDE_COUNT
 } idelist;
 extern void initprop(HWND hwnd);
@@ -268,6 +283,6 @@ extern int combutx;
 extern int combuty;
 extern int currY;
 
- extern WCHAR generatedCodeBuffer[204800]; // Larger buffer to accommodate more code
+extern WCHAR generatedCodeBuffer[210000]; // Larger buffer to accommodate more code
 
 #endif // IOSBUILDER_H

@@ -2,7 +2,8 @@
 #define _UNICODE    // Force Unicode for C Runtime Library
 
 #include "IOSBUILDER.h"
-WCHAR generatedCodeBuffer[204800]; // Larger buffer to accommodate more code
+
+WCHAR generatedCodeBuffer[210000]; // Larger buffer to accommodate more code
 
 const int labelWidth = 90;
 const int editWidth = 80;
@@ -13,7 +14,7 @@ const int rowSpacing = 40;
 const int colSpacing = 10;
 const int panelPadding = 10;
 
-int propPanelStartY = 30 + 400 + 45;
+int propPanelStartY = 50;
 
 // --- Global variable definitions (without extern) ---
 iOSUIElement g_iOSUIElements[MAX_UI_ELEMENTS];
@@ -47,59 +48,62 @@ UIElementDefinition g_elementDefinitions[] = {
 	{
 		TEXT("Button"), 1101, InitDefaultData, DrawButton, GenerateObjCButtonCode,
 		{50, 50, 130, 50, TEXT("按钮"), 123, 123, 123, 255, 255, 255, 24.0, 0, 0, 0, 0},
-		1, 1, 1, 1, 0, 0, 0, 0
+		1, 1, 1, 1, 0, 0, 0, 0, 0
 	},
 	{
 		TEXT("TextField"), 1102, InitDefaultData, DrawTextField, GenerateObjCTextFieldCode,
 		{50, 50, 240, 50, TEXT("搜索框"), 100, 100, 100, 255, 255, 255, 24.0, 0, 0, 0, 0},
-		1, 1, 1, 1, 0, 0, 0, 0
+		1, 1, 1, 1, 0, 0, 0, 0, 0
 	},
 	{
 		TEXT("TableView"), 1103, InitDefaultData, DrawTableView, GenerateObjCTableViewCode,
 		{ 50, 50, 130, 130, TEXT(""), 233, 233, 233, 255, 255, 255, 24.0, 0, 0, 0, 44}
-		, 0, 0, 0, 0, 0, 0, 0, 1
+		, 0, 0, 0, 0, 0, 0, 0, 1, 0
 	},
 	/*{
 		TEXT("Slider"), 1104, InitDefaultData, DrawSlider, GenerateObjCSliderCode,
 		{50, 50, 90, 30, TEXT(""), 0, 0, 0, 0, 0, 0, 0.0, 0, 100, 0, 0}
-		, 0, 0, 0, 0, 1, 1, 1, 0
+		, 0, 0, 0, 0, 1, 1, 1, 0,0
 	},*/
 	{
 		TEXT("Label"), 1105, InitDefaultData, DrawLabel, GenerateObjCLabelCode,
 		{50, 50, 100, 30, TEXT("label"), 100, 100, 100, 255, 255, 255, 24.0, 0, 0, 0, 0}
-		, 1, 1, 1, 1, 0, 0, 0, 0
+		, 1, 1, 1, 1, 0, 0, 0, 0, 1
 	},
-	{
-		TEXT("wtf"), 1106, InitDefaultData, DrawLabel, GenerateObjCLabelCode,
-		{50, 50, 100, 30, TEXT("wtf"), 100, 100, 100, 255, 255, 255, 24.0, 0, 0, 0, 0}
-		, 1, 1, 1, 1, 0, 0, 0, 0
-	}
+
 
 
 };
-//int g_numElementDefinitions = _countof(g_elementDefinitions);
 const int g_numElementDefinitions = sizeof(g_elementDefinitions) / sizeof(UIElementDefinition);
-
 
 xyh edits[30];
 propp labels[25];
 WCHAR labelname[][20] = {
-	TEXT("类型"),
+	TEXT("类型:"),
+	TEXT("变量名:"),
 	TEXT("X:"),
 	TEXT("Y:"),
 	TEXT("宽度:"),
 	TEXT("高度:"),
 	TEXT("文本:"),
-	TEXT("背景色"),
-	TEXT("文本色"),
+	TEXT("背景色:"),
+	TEXT("文本色:"),
 	TEXT("字体大小:"),
 	TEXT("最小值:"),
 	TEXT("最大值:"),
 	TEXT("当前值:"),
+	TEXT("链接函数:"),
+	TEXT("对齐方式"),
 };
 
-
-
+WCHAR textAlign[][50] = {
+	TEXT("Center"),
+	TEXT("Right"),
+	TEXT("Natural"),
+	TEXT("Left"),
+	TEXT("Justified")
+};
+int textAligns = _countof(textAlign);
 
 
 // --- Helper function implementations ---
@@ -114,57 +118,15 @@ void RgbToUIColorCode(int r, int g, int b, char* buffer, size_t bufferSize) {
 }
 
 void HideAllPropertiesUIControls(void) {
-	ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_X), SW_HIDE);
-	EnableWindow(edits[IDE_PROP_X - IDE_PROP_TYPE].thing, FALSE);
-	ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_Y), SW_HIDE);
-	EnableWindow(edits[IDE_PROP_Y - IDE_PROP_TYPE].thing, FALSE);
-	ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_WIDTH), SW_HIDE);
-	EnableWindow(edits[IDE_PROP_WIDTH - IDE_PROP_TYPE].thing, FALSE);
-	ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_HEIGHT), SW_HIDE);
-	EnableWindow(edits[IDE_PROP_HEIGHT - IDE_PROP_TYPE].thing, FALSE);
+	for (idclist i = IDC_PROP_X; i < IDC_COUNT; i++)
+		ShowWindow(GetDlgItem(hCodeOutputPanel, i), SW_HIDE);
+	for (idelist j = IDE_PROP_X; j < IDE_COUNT; j++)
+		EnableWindow(edits[j - IDE_PROP_TYPE].thing, FALSE);
 
-	ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_TEXT), SW_HIDE);
-	EnableWindow(edits[IDE_PROP_TEXT - IDE_PROP_TYPE].thing, FALSE);
+	for (idelist i = IDE_PROP_X; i <= IDE_COUNT; i++) {
+		SetWindowText(edits[i - IDE_PROP_TYPE].thing, TEXT(""));
+	}
 
-	ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_BG_R), SW_HIDE);
-	EnableWindow(edits[IDE_PROP_BG_R - IDE_PROP_TYPE].thing, FALSE);
-	ShowWindow(GetDlgItem(hCodeOutputPanel, IDE_PROP_BG_G), SW_HIDE);
-	EnableWindow(edits[IDE_PROP_BG_G - IDE_PROP_TYPE].thing, FALSE);
-	ShowWindow(GetDlgItem(hCodeOutputPanel, IDE_PROP_BG_B), SW_HIDE);
-	EnableWindow(edits[IDE_PROP_BG_B - IDE_PROP_TYPE].thing, FALSE);
-
-	ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_TEXT_R), SW_HIDE);
-	EnableWindow(edits[IDE_PROP_TEXT_R - IDE_PROP_TYPE].thing, FALSE);
-	ShowWindow(GetDlgItem(hCodeOutputPanel, IDE_PROP_TEXT_G), SW_HIDE);
-	EnableWindow(edits[IDE_PROP_TEXT_G - IDE_PROP_TYPE].thing, FALSE);
-	ShowWindow(GetDlgItem(hCodeOutputPanel, IDE_PROP_TEXT_B), SW_HIDE);
-	EnableWindow(edits[IDE_PROP_TEXT_B - IDE_PROP_TYPE].thing, FALSE);
-
-	ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_FONT_SIZE), SW_HIDE);
-	EnableWindow(edits[IDE_PROP_FONT_SIZE - IDE_PROP_TYPE].thing, FALSE);
-
-	ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_MIN_VALUE), SW_HIDE);
-	EnableWindow(edits[IDE_PROP_MIN_VALUE - IDE_PROP_TYPE].thing, FALSE);
-	ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_MAX_VALUE), SW_HIDE);
-	EnableWindow(edits[IDE_PROP_MAX_VALUE - IDE_PROP_TYPE].thing, FALSE);
-	ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_CURRENT_VALUE), SW_HIDE);
-	EnableWindow(edits[IDE_PROP_CURRENT_VALUE - IDE_PROP_TYPE].thing, FALSE);
-
-	SetWindowText(edits[IDE_PROP_X - IDE_PROP_TYPE].thing, TEXT(""));
-	SetWindowText(edits[IDE_PROP_Y - IDE_PROP_TYPE].thing, TEXT(""));
-	SetWindowText(edits[IDE_PROP_WIDTH - IDE_PROP_TYPE].thing, TEXT(""));
-	SetWindowText(edits[IDE_PROP_HEIGHT - IDE_PROP_TYPE].thing, TEXT(""));
-	SetWindowText(edits[IDE_PROP_TEXT - IDE_PROP_TYPE].thing, TEXT(""));
-	SetWindowText(edits[IDE_PROP_BG_R - IDE_PROP_TYPE].thing, TEXT(""));
-	SetWindowText(edits[IDE_PROP_BG_G - IDE_PROP_TYPE].thing, TEXT(""));
-	SetWindowText(edits[IDE_PROP_BG_B - IDE_PROP_TYPE].thing, TEXT(""));
-	SetWindowText(edits[IDE_PROP_TEXT_R - IDE_PROP_TYPE].thing, TEXT(""));
-	SetWindowText(edits[IDE_PROP_TEXT_G - IDE_PROP_TYPE].thing, TEXT(""));
-	SetWindowText(edits[IDE_PROP_TEXT_B - IDE_PROP_TYPE].thing, TEXT(""));
-	SetWindowText(edits[IDE_PROP_FONT_SIZE - IDE_PROP_TYPE].thing, TEXT(""));
-	SetWindowText(edits[IDE_PROP_MIN_VALUE - IDE_PROP_TYPE].thing, TEXT(""));
-	SetWindowText(edits[IDE_PROP_MAX_VALUE - IDE_PROP_TYPE].thing, TEXT(""));
-	SetWindowText(edits[IDE_PROP_CURRENT_VALUE - IDE_PROP_TYPE].thing, TEXT(""));
 }
 
 void UpdatePropertiesPanelUI(iOSUIElement* element) {
@@ -263,12 +225,26 @@ void UpdatePropertiesPanelUI(iOSUIElement* element) {
 		swprintf_s(buffer, _countof(buffer), TEXT("%.1f"), element->currentValue);
 		SetWindowText(edits[IDE_PROP_CURRENT_VALUE - IDE_PROP_TYPE].thing, buffer);
 	}
+	if (wcscmp(element->type, TEXT("Button")) == 0) {
+		ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_CONPROC), SW_SHOW);
+		EnableWindow(edits[IDE_PROP_CONPROC - IDE_PROP_TYPE].thing, TRUE);
+		SetWindowText(edits[IDE_PROP_CONPROC - IDE_PROP_TYPE].thing, element->linkproc);
+	}
+
+	if (wcscmp(element->type, TEXT("Label")) == 0) {
+		ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_ALIGNMENT), SW_SHOW);
+		EnableWindow(edits[IDE_PROP_ALIGNMENT - IDE_PROP_TYPE].thing, TRUE);
+		ComboBox_SetCurSel(edits[IDE_PROP_ALIGNMENT - IDE_PROP_TYPE].thing, element->alignment);
+	}
 }
 
 // Reads property values from UI controls and updates the element's properties.
 void ReadPropertiesFromUI(iOSUIElement* element) {
 	WCHAR buffer[256];
 	float floatValue;
+
+	GetWindowText(edits[IDE_PROP_VNAME - IDE_PROP_TYPE].thing, element->Vname, _countof(element->Vname));
+	GetWindowText(edits[IDE_PROP_CONPROC - IDE_PROP_TYPE].thing, element->linkproc, _countof(element->linkproc));
 
 	// Always read common position/size properties
 	GetWindowText(edits[IDE_PROP_X - IDE_PROP_TYPE].thing, buffer, _countof(buffer));
@@ -335,296 +311,157 @@ void ReadPropertiesFromUI(iOSUIElement* element) {
 		floatValue = (float)_wtof(buffer);
 		element->currentValue = floatValue;
 	}
+	if (wcscmp(element->type, TEXT("Button")) == 0) {
+		GetWindowText(edits[IDE_PROP_CONPROC - IDE_PROP_TYPE].thing, element->linkproc, _countof(element->linkproc));
+	}
+	if (wcscmp(element->type, TEXT("Label")) == 0) {
+		element->alignment = ComboBox_GetCurSel(edits[IDE_PROP_ALIGNMENT - IDE_PROP_TYPE].thing);
+	}
+
 }
 
 
 // Button functions
 void DrawButton(HDC hdc, iOSUIElement* element) {
-	RECT elementRect = {element->x, element->y, element->x + element->width, element->y + element->height};
+	HMODULE g_hBuilderCoreDll = NULL;
+	g_hBuilderCoreDll = LoadLibraryW(L"libbuidll.dll");
+	if (g_hBuilderCoreDll == NULL)
+		MessageBeep(MB_ICONERROR);
+	void (*pfn)(HDC hdc, iOSUIElement * element);
+	pfn = (void *)GetProcAddress(g_hBuilderCoreDll, "DrawButton");
+	if (!pfn)
+		MessageBeep(MB_ICONERROR);
+	pfn(hdc, element);
+	FreeLibrary(g_hBuilderCoreDll);
 
-	HPEN hPen = CreatePen(PS_SOLID, 1, RGB(element->bgColorR, element->bgColorG, element->bgColorB));
-	HBRUSH hBrush = CreateSolidBrush(RGB(element->bgColorR, element->bgColorG, element->bgColorB));
-	HPEN hOldPen = SelectObject(hdc, hPen);
-	HBRUSH hOldBrush = SelectObject(hdc, hBrush);
-
-	Rectangle(hdc, elementRect.left, elementRect.top, elementRect.right, elementRect.bottom);
-
-	SelectObject(hdc, hOldPen);
-	SelectObject(hdc, hOldBrush);
-	DeleteObject(hPen);
-	DeleteObject(hBrush);
-
-	SetBkMode(hdc, TRANSPARENT);
-	SetTextColor(hdc, RGB(element->textColorR, element->textColorG, element->textColorB));
-	HFONT hFont = CreateFont(-(int)element->fontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, TEXT("Arial"));
-	HFONT hOldFont = SelectObject(hdc, hFont);
-
-	DrawText(hdc, element->text, -1, &elementRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
-
-	SelectObject(hdc, hOldFont);
-	DeleteObject(hFont);
 }
+
 void GenerateObjCButtonCode(WCHAR* codeBuffer, size_t bufferSize, iOSUIElement * element) {
-	char bgColorCode_mbcs[100];
-	char textColorCode_mbcs[100];
+	HMODULE g_hBuilderCoreDll = NULL;
+	g_hBuilderCoreDll = LoadLibraryW(L"libbuidll.dll");
+	if (g_hBuilderCoreDll == NULL)
+		MessageBeep(MB_ICONERROR);
+	void (*pfn)(WCHAR * codeBuffer, size_t bufferSize, iOSUIElement * element);
+	pfn = (void *)GetProcAddress(g_hBuilderCoreDll, "GenerateObjCButtonCode");
+	if (!pfn)
+		MessageBeep(MB_ICONERROR);
+	pfn(codeBuffer, bufferSize, element);
+	FreeLibrary(g_hBuilderCoreDll);
 
-	RgbToUIColorCode(element->bgColorR, element->bgColorG, element->bgColorB, bgColorCode_mbcs, sizeof(bgColorCode_mbcs));
-	RgbToUIColorCode(element->textColorR, element->textColorG, element->textColorB, textColorCode_mbcs, sizeof(textColorCode_mbcs));
-
-	WCHAR bgColorCode_wc[100];
-	MultiByteToWideChar(CP_UTF8, 0, bgColorCode_mbcs, -1, bgColorCode_wc, _countof(bgColorCode_wc));
-	WCHAR textColorCode_wc[100];
-	MultiByteToWideChar(CP_UTF8, 0, textColorCode_mbcs, -1, textColorCode_wc, _countof(textColorCode_wc));
-
-	char text_utf8[512];
-	WideCharToMultiByte(CP_UTF8, 0, element->text, -1, text_utf8, _countof(text_utf8), NULL, NULL);
-	WCHAR text_wc[512];
-	MultiByteToWideChar(CP_UTF8, 0, text_utf8, -1, text_wc, _countof(text_wc));
-
-	swprintf_s(codeBuffer, bufferSize,
-	           TEXT("    UIButton *myButton%d = [UIViewController createButtonWithFrame:CGRectMake(%d, %d, %d, %d)\r\n")
-	           TEXT("                                                          bgcolor:%ls\r\n")
-	           TEXT("                                                        textColor:%ls\r\n")
-	           TEXT("                                                             font:[UIFont fontWithName:@\"arial\" size:%.2f] // Font size\r\n")
-	           TEXT("                                                            title:@\"%ls\"\r\n")
-	           TEXT("                                                      borderWidth:0.0 // Example border width\r\n")
-	           TEXT("                                                      borderColor:nil]; // Example border width\r\n")
-	           TEXT("    [self.view addSubview:myButton%d]; \r\n\r\n"),
-	           element->id, element->original_x, element->original_y, element->original_width, element->original_height,
-	           bgColorCode_wc, textColorCode_wc, element->fontSize, text_wc, element->id
-	          );
 }
-
 
 // Text Field functions
 void DrawTextField(HDC hdc, iOSUIElement* element) {
-	RECT elementRect = {element->x, element->y, element->x + element->width, element->y + element->height};
+	HMODULE g_hBuilderCoreDll = NULL;
+	g_hBuilderCoreDll = LoadLibraryW(L"libbuidll.dll");
+	if (g_hBuilderCoreDll == NULL)
+		MessageBeep(MB_ICONERROR);
+	void (*pfn)(HDC hdc, iOSUIElement * element);
+	pfn = (void *)GetProcAddress(g_hBuilderCoreDll, "DrawTextField");
+	if (!pfn)
+		MessageBeep(MB_ICONERROR);
+	pfn(hdc,  element);
+	FreeLibrary(g_hBuilderCoreDll);
 
-	HPEN hPen = CreatePen(PS_SOLID, 1, RGB(0, 100, 0));
-	HBRUSH hBrush = CreateSolidBrush(RGB(element->bgColorR, element->bgColorG, element->bgColorB));
-	HPEN hOldPen = SelectObject(hdc, hPen);
-	HBRUSH hOldBrush = SelectObject(hdc, hBrush);
-
-	Rectangle(hdc, elementRect.left, elementRect.top, elementRect.right, elementRect.bottom);
-
-	SelectObject(hdc, hOldPen);
-	SelectObject(hdc, hOldBrush);
-	DeleteObject(hPen);
-	DeleteObject(hBrush);
-
-	SetBkMode(hdc, TRANSPARENT);
-	SetTextColor(hdc, RGB(element->textColorR, element->textColorG, element->textColorB));
-	HFONT hFont = CreateFont(-(int)element->fontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, TEXT("Arial"));
-	HFONT hOldFont = SelectObject(hdc, hFont);
-
-	DrawText(hdc, element->text, -1, &elementRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
-
-	SelectObject(hdc, hOldFont);
-	DeleteObject(hFont);
 }
 void GenerateObjCTextFieldCode(WCHAR* codeBuffer, size_t bufferSize, iOSUIElement * element) {
-	char textColorCode_mbcs[100];
-	RgbToUIColorCode(element->textColorR, element->textColorG, element->textColorB, textColorCode_mbcs, sizeof(textColorCode_mbcs));
 
-	char bgColorCode_mbcs[100];
-	RgbToUIColorCode(element->bgColorR, element->bgColorG, element->bgColorB, bgColorCode_mbcs, sizeof(bgColorCode_mbcs));
+	HMODULE g_hBuilderCoreDll = NULL;
+	g_hBuilderCoreDll = LoadLibraryW(L"libbuidll.dll");
+	if (g_hBuilderCoreDll == NULL)
+		MessageBeep(MB_ICONERROR);
+	void (*pfn)(WCHAR * codeBuffer, size_t bufferSize, iOSUIElement * element);
+	pfn = (void *)GetProcAddress(g_hBuilderCoreDll, "GenerateObjCTextFieldCode");
+	if (!pfn)
+		MessageBeep(MB_ICONERROR);
+	pfn(codeBuffer, bufferSize, element);
+	FreeLibrary(g_hBuilderCoreDll);
 
-
-	WCHAR textColorCode_wc[100];
-	MultiByteToWideChar(CP_UTF8, 0, textColorCode_mbcs, -1, textColorCode_wc, _countof(textColorCode_wc));
-
-	WCHAR bgColorCode_wc[100];
-	MultiByteToWideChar(CP_UTF8, 0, bgColorCode_mbcs, -1, bgColorCode_wc, _countof(bgColorCode_wc));
-
-	char text_utf8[512];
-	WideCharToMultiByte(CP_UTF8, 0, element->text, -1, text_utf8, _countof(text_utf8), NULL, NULL);
-	WCHAR text_wc[512];
-	MultiByteToWideChar(CP_UTF8, 0, text_utf8, -1, text_wc, _countof(text_wc));
-
-	swprintf_s(codeBuffer, bufferSize,
-	           TEXT("    UITextField *myTextField%d = [UIViewController createTextFieldWithFrame:CGRectMake(%d, %d, %d, %d)\r\n")
-	           TEXT("                                                            borderWidth:1.0 // Example\r\n")
-	           TEXT("                                                            borderColor:[UIColor lightGrayColor].CGColor // Example\r\n")
-	           TEXT("                                                        	 clearButton:UITextFieldViewModeAlways // Example\r\n")
-	           TEXT("                                                            placeHolder:@\"%ls\"\r\n")
-	           TEXT("                                                          	 retKey:UIReturnKeyDone // Example\r\n")
-	           TEXT("                                                            font:[UIFont fontWithName:@\"arial\" size:%.2f] // Font size\r\n")
-	           TEXT("                                                    		 keyboardAppearance:UIKeyboardAppearanceDark]; // Example\r\n")
-	           TEXT("    // myTextField%d.delegate = self; // If delegate needs to be set\r\n")
-	           TEXT("    [self.view addSubview:myTextField%d];\r\n\r\n"),
-	           element->id, element->original_x, element->original_y, element->original_width, element->original_height,
-	           text_wc,  element->fontSize, element->id, element->id
-	          );
 }
 
 
 // Table View functions
 void DrawTableView(HDC hdc, iOSUIElement* element) {
-	RECT elementRect = {element->x, element->y, element->x + element->width, element->y + element->height};
-
-	HPEN hPen = CreatePen(PS_SOLID, 1, RGB(100, 0, 100));
-	HBRUSH hBrush = CreateSolidBrush(RGB(255, 200, 255));
-	HPEN hOldPen = SelectObject(hdc, hPen);
-	HBRUSH hOldBrush = SelectObject(hdc, hBrush);
-
-	Rectangle(hdc, elementRect.left, elementRect.top, elementRect.right, elementRect.bottom);
-
-	SelectObject(hdc, hOldPen);
-	SelectObject(hdc, hOldBrush);
-	DeleteObject(hPen);
-	DeleteObject(hBrush);
-
-	SetBkMode(hdc, TRANSPARENT);
-	SetTextColor(hdc, RGB(0, 0, 0));
-	hPen = CreatePen(PS_SOLID, 1, RGB(180, 180, 180));
-	hOldPen = SelectObject(hdc, hPen);
-
-	int currentY = elementRect.top + element->rowHeight;
-
-	while (currentY < elementRect.bottom) {
-		MoveToEx(hdc, elementRect.left, currentY, NULL);
-
-		LineTo(hdc, elementRect.right, currentY);
-		currentY += element->rowHeight;
-	}
-
-	SelectObject(hdc, hOldPen);
-	DeleteObject(hPen);
-
-	HFONT hFont = CreateFont(-17, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, TEXT("Arial"));
-	HFONT hOldFont = SelectObject(hdc, hFont);
-	DrawText(hdc, TEXT("表格视图"), -1, &elementRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-	SelectObject(hdc, hOldFont);
-	DeleteObject(hFont);
+	HMODULE g_hBuilderCoreDll = NULL;
+	g_hBuilderCoreDll = LoadLibraryW(L"libbuidll.dll");
+	if (g_hBuilderCoreDll == NULL)
+		MessageBeep(MB_ICONERROR);
+	void (*pfn)(HDC hdc, iOSUIElement * element);
+	pfn = (void *)GetProcAddress(g_hBuilderCoreDll, "DrawTableView");
+	if (!pfn)
+		MessageBeep(MB_ICONERROR);
+	pfn(hdc, element);
+	FreeLibrary(g_hBuilderCoreDll);
 
 }
 void GenerateObjCTableViewCode(WCHAR* codeBuffer, size_t bufferSize, iOSUIElement * element) {
+	HMODULE g_hBuilderCoreDll = NULL;
+	g_hBuilderCoreDll = LoadLibraryW(L"libbuidll.dll");
+	if (g_hBuilderCoreDll == NULL)
+		MessageBeep(MB_ICONERROR);
+	void (*pfn)(WCHAR * codeBuffer, size_t bufferSize, iOSUIElement * element);
+	pfn = (void *)GetProcAddress(g_hBuilderCoreDll, "GenerateObjCTableViewCode");
+	if (!pfn)
+		MessageBeep(MB_ICONERROR);
+	pfn(codeBuffer, bufferSize, element);
+	FreeLibrary(g_hBuilderCoreDll);
 
-	swprintf_s(codeBuffer, bufferSize,
-	           TEXT("    UITableView *myTableView%d = [UIViewController createTableViewWithFrame:CGRectMake(%d, %d, %d, %d)\r\n")
-	           TEXT("                                                                    style:UITableViewStylePlain // Example\r\n")
-	           TEXT("                                                              borderw:1.0 // Example\r\n")
-	           TEXT("                                                              borderColor:[UIColor lightGrayColor].CGColor // Example\r\n")
-	           TEXT("                                                                ciden:@\"MyCellIdentifier%d\"]; // Example\r\n")
-	           TEXT("	 //myTableView%d.dataSource=self; // Example\r\n")
-	           TEXT("	 //myTableView%d.delegate=self; // Example\r\n")
-	           TEXT("    [self.view addSubview:myTableView%d];\r\n\r\n"),
-	           element->id, element->original_x, element->original_y, element->original_width, element->original_height,
-	           element->id,
-	           element->id, element->id, element->id
-	          );
 }
 
 // Slider functions
 /*
 void DrawSlider(HDC hdc, iOSUIElement* element) {
-	RECT elementRect = {element->x, element->y, element->x + element->width, element->y + element->height};
+	HMODULE g_hBuilderCoreDll = NULL;
+		g_hBuilderCoreDll = LoadLibraryW(L"libbuidll.dll");
+		if (g_hBuilderCoreDll == NULL)
+			MessageBeep(MB_ICONERROR);
+		void (*pfn)(HDC hdc, iOSUIElement* element);
+		pfn = (void *)GetProcAddress(g_hBuilderCoreDll, "DrawSlider");
+		if (!pfn)
+			MessageBeep(MB_ICONERROR);
+		pfn(hdc,  element);
+	FreeLibrary(g_hBuilderCoreDll);
 
-	int sliderCenterY = elementRect.top + (elementRect.bottom - elementRect.top) / 2;
-	int thumbX = elementRect.left + (int)((element->currentValue - element->minValue) / (element->maxValue - element->minValue) * element->width);
-
-	if (thumbX < elementRect.left) thumbX = elementRect.left;
-	if (thumbX > elementRect.right) thumbX = elementRect.right;
-
-	HPEN hPen = CreatePen(PS_SOLID, 2, RGB(150, 150, 150));
-	HPEN hOldPen = SelectObject(hdc, hPen);
-	MoveToEx(hdc, elementRect.left, sliderCenterY, NULL);
-	LineTo(hdc, elementRect.right, sliderCenterY);
-	SelectObject(hdc, hOldPen);
-	DeleteObject(hPen);
-
-	HBRUSH hBrush = CreateSolidBrush(RGB(0, 122, 255));
-	HBRUSH hOldBrush = SelectObject(hdc, hBrush);
-	Ellipse(hdc, thumbX - 8, sliderCenterY - 8, thumbX + 8, sliderCenterY + 8);
-	SelectObject(hdc, hOldBrush);
-	DeleteObject(hBrush);
-
-	SetBkMode(hdc, TRANSPARENT);
-	SetTextColor(hdc, RGB(255, 255, 255));
-	WCHAR valueStr[50];
-	swprintf_s(valueStr, _countof(valueStr), TEXT("%.1f"), element->currentValue);
-	RECT valueRect = {elementRect.left, elementRect.top, elementRect.right, sliderCenterY - 10};
-	HFONT hFont = CreateFont(-14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, TEXT("Arial"));
-	HFONT hOldFont = SelectObject(hdc, hFont);
-	DrawText(hdc, valueStr, -1, &valueRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-	SelectObject(hdc, hOldFont);
-	DeleteObject(hFont);
 }
 void GenerateObjCSliderCode(WCHAR* codeBuffer, size_t bufferSize, iOSUIElement* element) {
-	swprintf_s(codeBuffer, bufferSize,
-	           TEXT("    UISlider *mySlider%d = [[UISlider alloc] initWithFrame:CGRectMake(%d, %d, %d, %d)];\r\n")
-	           TEXT("    mySlider%d.minimumValue = %.1f;\r\n")
-	           TEXT("    mySlider%d.maximumValue = %.1f;\r\n")
-	           TEXT("    mySlider%d.value = %.1f;\r\n")
-	           TEXT("    [mySlider%d addTarget:self action:@selector(sliderValueChanged:) forControlEvents:UIControlEventValueChanged];\r\n")
-	           TEXT("    [self.view addSubview:mySlider%d];\r\n\r\n"),
-	           element->id, element->original_x, element->original_y, element->original_width, element->original_height,
-	           element->id, element->minValue,
-	           element->id, element->maxValue,
-	           element->id, element->currentValue,
-	           element->id,
-	           element->id
-	          );
+	HMODULE g_hBuilderCoreDll = NULL;
+		g_hBuilderCoreDll = LoadLibraryW(L"libbuidll.dll");
+		if (g_hBuilderCoreDll == NULL)
+			MessageBeep(MB_ICONERROR);
+		void (*pfn)(WCHAR * codeBuffer, size_t bufferSize, iOSUIElement * element);
+		pfn = (void *)GetProcAddress(g_hBuilderCoreDll, "GenerateObjCSliderCode");
+		if (!pfn)
+			MessageBeep(MB_ICONERROR);
+		pfn(codeBuffer, bufferSize, element);
+			FreeLibrary(g_hBuilderCoreDll);
+
 }*/
 
 // Label functions
 void DrawLabel(HDC hdc, iOSUIElement* element) {
-	RECT elementRect = {element->x, element->y, element->x + element->width, element->y + element->height};
+	HMODULE g_hBuilderCoreDll = NULL;
+	g_hBuilderCoreDll = LoadLibraryW(L"libbuidll.dll");
+	if (g_hBuilderCoreDll == NULL)
+		MessageBeep(MB_ICONERROR);
+	void (*pfn)(HDC hdc, iOSUIElement * element);
+	pfn = (void *)GetProcAddress(g_hBuilderCoreDll, "DrawLabel");
+	if (!pfn)
+		MessageBeep(MB_ICONERROR);
+	pfn(hdc, element);
+	FreeLibrary(g_hBuilderCoreDll);
 
-	// Only draw background if it's not transparent (all zeros)
-	if (element->bgColorR != 0 || element->bgColorG != 0 || element->bgColorB != 0) {
-		HBRUSH hBrush = CreateSolidBrush(RGB(element->bgColorR, element->bgColorG, element->bgColorB));
-		HBRUSH hOldBrush = SelectObject(hdc, hBrush);
-		FillRect(hdc, &elementRect, hBrush);
-		SelectObject(hdc, hOldBrush);
-		DeleteObject(hBrush);
-	}
-
-	SetBkMode(hdc, TRANSPARENT);
-	SetTextColor(hdc, RGB(element->textColorR, element->textColorG, element->textColorB));
-	HFONT hFont = CreateFont(-(int)element->fontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, TEXT("Arial"));
-	HFONT hOldFont = SelectObject(hdc, hFont);
-
-	DrawText(hdc, element->text, -1, &elementRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
-
-	SelectObject(hdc, hOldFont);
-	DeleteObject(hFont);
 }
 void GenerateObjCLabelCode(WCHAR* codeBuffer, size_t bufferSize, iOSUIElement* element) {
-	char textColorCode_mbcs[100];
-		RgbToUIColorCode(element->textColorR, element->textColorG, element->textColorB, textColorCode_mbcs, sizeof(textColorCode_mbcs));
-	
-		char bgColorCode_mbcs[100];
-		RgbToUIColorCode(element->bgColorR, element->bgColorG, element->bgColorB, bgColorCode_mbcs, sizeof(bgColorCode_mbcs));
-	
-	
-		WCHAR textColorCode_wc[100];
-		MultiByteToWideChar(CP_UTF8, 0, textColorCode_mbcs, -1, textColorCode_wc, _countof(textColorCode_wc));
-	
-		WCHAR bgColorCode_wc[100];
-		MultiByteToWideChar(CP_UTF8, 0, bgColorCode_mbcs, -1, bgColorCode_wc, _countof(bgColorCode_wc));
-	
-		char text_utf8[512];
-		WideCharToMultiByte(CP_UTF8, 0, element->text, -1, text_utf8, _countof(text_utf8), NULL, NULL);
-		WCHAR text_wc[512];
-		MultiByteToWideChar(CP_UTF8, 0, text_utf8, -1, text_wc, _countof(text_wc));
-	
-
-	swprintf_s(codeBuffer, bufferSize,
-	           TEXT("UILabel *myLabel%d = [UIViewController createlabelwithframe:CGRectMake(%d,%d,%d,%d)\r\n")
-	           TEXT("			backcolor:%ls\r\n")
-	           TEXT("			font:[UIFont fontWithName:@\"arial\" size:%.1f]\r\n")
-	           TEXT("			textcolor:%ls\r\n")
-	           TEXT("			textalignment:NSTextAlignmentCenter\r\n")
-	           TEXT("			text:@\"%ls\"];\r\n")
-	           TEXT("    [self.view addSubview:myLabel%d];\r\n\r\n"),
-	           element->id, element->original_x, element->original_y, element->original_width, element->original_height,
-	           bgColorCode_wc,
-	           element->fontSize,
-	           textColorCode_wc,
-	           text_wc, 
-			   element->id
-	          );
+	HMODULE g_hBuilderCoreDll = NULL;
+	g_hBuilderCoreDll = LoadLibraryW(L"libbuidll.dll");
+	if (g_hBuilderCoreDll == NULL)
+		MessageBeep(MB_ICONERROR);
+	void (*pfn)(WCHAR * codeBuffer, size_t bufferSize, iOSUIElement * element);
+	pfn = (void *)GetProcAddress(g_hBuilderCoreDll, "GenerateObjCLabelCode");
+	if (!pfn)
+		MessageBeep(MB_ICONERROR);
+	pfn(codeBuffer, bufferSize, element);
+	FreeLibrary(g_hBuilderCoreDll);
 
 }
 
@@ -635,7 +472,7 @@ void UpdatePropertiesPanel(void) {
 		iOSUIElement *element = &g_iOSUIElements[g_selectedElementIndex];
 
 		SetWindowText(edits[IDE_PROP_TYPE - IDE_PROP_TYPE].thing, element->type);
-
+		SetWindowText(edits[IDE_PROP_VNAME - IDE_PROP_TYPE].thing, element->Vname);
 		HideAllPropertiesUIControls(); // First, hide all controls
 
 		UpdatePropertiesPanelUI(element); // Then, display relevant controls based on selected element's properties
@@ -651,7 +488,6 @@ void UpdatePropertiesPanel(void) {
 
 // Regenerates all Objective-C code
 void RegenerateAllObjCCode(void) {
-	//WCHAR generatedCodeBuffer[204800]; // Larger buffer to accommodate more code
 	ZeroMemory(generatedCodeBuffer, sizeof(generatedCodeBuffer));
 
 	wcscat_s(generatedCodeBuffer, _countof(generatedCodeBuffer), TEXT("// 引入你的通用 UI 工厂类别头文件 (csm.h)\r\n"));
@@ -678,6 +514,7 @@ void RegenerateAllObjCCode(void) {
 
 
 void InitDefaultData(iOSUIElement* element) {
+	swprintf_s(element->Vname, 100, TEXT("%s%d"), element->type, element->id);
 	element->x = element->definition->Defaults.defaultx;
 	element->y = element->definition->Defaults.defaulty;
 
@@ -784,6 +621,20 @@ void initprop(HWND hwnd) {
 				edits[count].width = longEditWidth;
 				break;
 			}
+			case IDE_PROP_VNAME: {
+				edits[count].x = panelPadding + labelWidth + colSpacing ;
+				edits[count].y = currY2;
+				edits[count].width = longEditWidth;
+				break;
+			}
+			case IDE_PROP_ALIGNMENT:
+			case IDE_PROP_CONPROC: {
+				edits[count].x = panelPadding + labelWidth + colSpacing ;
+				edits[count].y = currY2;
+				edits[count].width = longEditWidth;
+				break;
+			}
+
 			default:
 				edits[count].x = panelPadding + labelWidth + colSpacing;
 				edits[count].y = currY2;
@@ -795,6 +646,12 @@ void initprop(HWND hwnd) {
 		if (i == IDE_PROP_TYPE)
 			edits[count].thing = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("STATIC"), TEXT(""), WS_CHILD | WS_VISIBLE | SS_CENTER,
 			                                    edits[count].x, edits[count].y, edits[count].width, controlHeight, hwnd, (HMENU)i, hInstance, NULL);
+		else if (i == IDE_PROP_ALIGNMENT)
+			edits[count].thing = CreateWindowEx(
+			                         0, TEXT("COMBOBOX"), NULL,
+			                         CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE | WS_VSCROLL,
+			                         edits[count].x, edits[count].y, edits[count].width, 980,
+			                         hwnd, (HMENU)IDE_PROP_ALIGNMENT, hInstance, NULL);
 		else
 			edits[count].thing = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | SS_CENTER | ES_AUTOHSCROLL,
 			                                    edits[count].x, edits[count].y, edits[count].width, controlHeight, hwnd, (HMENU)i, hInstance, NULL);
@@ -802,4 +659,6 @@ void initprop(HWND hwnd) {
 		currY2 += rowSpacing;
 	}
 
+	for (int i = 0; i < textAligns; i++)
+		ComboBox_AddString(edits[IDE_PROP_ALIGNMENT - IDE_PROP_TYPE].thing, textAlign[i]);
 }
