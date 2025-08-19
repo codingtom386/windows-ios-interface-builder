@@ -35,7 +35,7 @@ void inittool() {
 	char text[30];
 	int count = 0;
 	mapping = fopen("dllmap.map", "r");
-	const char* form = "%100[^,],%d,%75[^,],%75[^,],%d,%d,%d,%d,%30[^,],%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d";
+	const char* form = " %100[^,], %d, %75[^,], %75[^,], %d, %d, %d, %d, %30[^,], %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d";
 	while (fscanf(mapping, form, type,
 	              &g_elementDefinitions[count].toolButtonId,
 	              draw,
@@ -66,7 +66,6 @@ void inittool() {
 	              &g_elementDefinitions[count].hasRowHeight,
 	              &g_elementDefinitions[count].hasAlignment) == 29) {
 		MultiByteToWideChar(CP_UTF8, 0, type, -1, g_elementDefinitions[count].typeName, _countof(g_elementDefinitions[count].typeName));
-		MessageBoxA(NULL, "load success", NULL, MB_OK);
 		g_elementDefinitions[count].drawFunc = (void *)GetProcAddress(g_hBuilderCoreDll, draw);
 		if (!g_elementDefinitions[count].drawFunc)
 			MessageBoxA(NULL, "drawFunc load error", NULL, MB_ICONERROR);
