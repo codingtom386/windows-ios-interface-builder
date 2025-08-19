@@ -11,7 +11,6 @@
 #include <tchar.h>
 #include <commctrl.h>
 #include <commdlg.h> // Common Dialogs
-#include <dwmapi.h>
 // --- Global Constants and Macros ---
 #define MAIN_WINDOW_CLASS_NAME TEXT("Win32iOSUIBuilderClass")
 #define MAIN_WINDOW_TITLE      TEXT("我的 iOS UI Builder (Win32) - 统一属性管理")
@@ -31,41 +30,8 @@
 #define IDC_TOOL_SLIDER        1104 // New: Slider tool ID
 #define IDC_TOOL_LABEL         1105 // New: Label tool ID
 
-// Control IDs in the properties panel
-#define IDC_PROPERTIES_PANEL   1200
-#define IDC_PROP_TYPE_LABEL    1201
-#define IDC_PROP_TYPE_STATIC   1202
-#define IDC_PROP_X_LABEL       1203
-#define IDC_PROP_X_EDIT        1204
-#define IDC_PROP_Y_LABEL       1205
-#define IDC_PROP_Y_EDIT        1206
-#define IDC_PROP_WIDTH_LABEL   1207
-#define IDC_PROP_WIDTH_EDIT    1208
-#define IDC_PROP_HEIGHT_LABEL  1209
-#define IDC_PROP_HEIGHT_EDIT   1210
-#define IDC_PROP_TEXT_LABEL    1211
-#define IDC_PROP_TEXT_EDIT     1212
+
 #define IDC_PROP_CONFIRM_BUTTON 1213
-
-#define IDC_PROP_BG_R_LABEL    1214
-#define IDC_PROP_BG_R_EDIT     1215
-#define IDC_PROP_BG_G_EDIT     1216
-#define IDC_PROP_BG_B_EDIT     1217
-
-#define IDC_PROP_TEXT_R_LABEL  1218
-#define IDC_PROP_TEXT_R_EDIT   1219
-#define IDC_PROP_TEXT_G_EDIT   1220
-#define IDC_PROP_TEXT_B_EDIT   1221
-
-#define IDC_PROP_FONT_SIZE_LABEL 1222
-#define IDC_PROP_FONT_SIZE_EDIT  1223
-
-#define IDC_PROP_MIN_VALUE_LABEL 1224 // New: Slider min value label
-#define IDC_PROP_MIN_VALUE_EDIT  1225 // New: Slider min value edit box
-#define IDC_PROP_MAX_VALUE_LABEL 1226 // New: Slider max value label
-#define IDC_PROP_MAX_VALUE_EDIT  1227 // New: Slider max value edit box
-#define IDC_PROP_CURRENT_VALUE_LABEL 1228 // New: Slider current value label
-#define IDC_PROP_CURRENT_VALUE_EDIT  1229 // New: Slider current value edit box
 
 // Menu Command IDs
 #define IDM_FILE_EXIT       40001
@@ -168,7 +134,7 @@ extern HWND hCodeOutputPanel;
 extern HBRUSH g_hbrPropertiesPanelBackground;
 
 extern UIElementDefinition g_elementDefinitions[]; // UI element definition array
-extern const int g_numElementDefinitions; // Number of UI element definitions
+extern int g_numElementDefinitions; // Number of UI element definitions
 
 
 // --- Function Prototypes (Declarations) ---

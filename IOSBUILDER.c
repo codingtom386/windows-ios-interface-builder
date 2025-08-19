@@ -20,16 +20,7 @@ int propPanelStartY = 50;
 iOSUIElement g_iOSUIElements[MAX_UI_ELEMENTS];
 int g_iOSUIElementCount = 0;
 int g_selectedElementIndex = -1;
-
-HWND g_hPropTypeStatic;
-HWND g_hPropXEdit, g_hPropYEdit, g_hPropWidthEdit, g_hPropHeightEdit, g_hPropTextEdit;
 HWND g_hPropConfirmButton;
-
-HWND g_hPropBgR_Edit, g_hPropBgG_Edit, g_hPropBgB_Edit;
-HWND g_hPropTextR_Edit, g_hPropTextG_Edit, g_hPropTextB_Edit;
-HWND g_hPropFontSize_Edit;
-
-HWND g_hPropMinValue_Edit, g_hPropMaxValue_Edit, g_hPropCurrentValue_Edit;
 
 HWND g_hCanvasPanel;
 HWND g_hCodeEdit;
@@ -42,40 +33,13 @@ int combutx;
 int combuty;
 int currY;
 
-const double CANVAS_ASPECT_RATIO = (double)CANVAS_INITIAL_WIDTH / CANVAS_INITIAL_HEIGHT;
+//const double CANVAS_ASPECT_RATIO = (double)CANVAS_INITIAL_WIDTH / CANVAS_INITIAL_HEIGHT;
 
-UIElementDefinition g_elementDefinitions[] = {
-	{
-		TEXT("Button"), 1101, InitDefaultData, DrawButton, GenerateObjCButtonCode,
-		{50, 50, 130, 50, TEXT("按钮"), 123, 123, 123, 255, 255, 255, 24.0, 0, 0, 0, 0},
-		1, 1, 1, 1, 0, 0, 0, 0, 0
-	},
-	{
-		TEXT("TextField"), 1102, InitDefaultData, DrawTextField, GenerateObjCTextFieldCode,
-		{50, 50, 240, 50, TEXT("搜索框"), 100, 100, 100, 255, 255, 255, 24.0, 0, 0, 0, 0},
-		1, 1, 1, 1, 0, 0, 0, 0, 0
-	},
-	{
-		TEXT("TableView"), 1103, InitDefaultData, DrawTableView, GenerateObjCTableViewCode,
-		{ 50, 50, 130, 130, TEXT(""), 233, 233, 233, 255, 255, 255, 24.0, 0, 0, 0, 44}
-		, 0, 0, 0, 0, 0, 0, 0, 1, 0
-	},
-	/*{
-		TEXT("Slider"), 1104, InitDefaultData, DrawSlider, GenerateObjCSliderCode,
-		{50, 50, 90, 30, TEXT(""), 0, 0, 0, 0, 0, 0, 0.0, 0, 100, 0, 0}
-		, 0, 0, 0, 0, 1, 1, 1, 0,0
-	},*/
-	{
-		TEXT("Label"), 1105, InitDefaultData, DrawLabel, GenerateObjCLabelCode,
-		{50, 50, 100, 30, TEXT("label"), 100, 100, 100, 255, 255, 255, 24.0, 0, 0, 0, 0}
-		, 1, 1, 1, 1, 0, 0, 0, 0, 1
-	},
-
-
-
+UIElementDefinition g_elementDefinitions[25] = {
+	
 };
-const int g_numElementDefinitions = sizeof(g_elementDefinitions) / sizeof(UIElementDefinition);
-
+//const int g_numElementDefinitions = sizeof(g_elementDefinitions) / sizeof(UIElementDefinition);
+int g_numElementDefinitions=0;
 xyh edits[30];
 propp labels[25];
 WCHAR labelname[][20] = {
@@ -108,14 +72,7 @@ int textAligns = _countof(textAlign);
 
 // --- Helper function implementations ---
 
-void RgbToUIColorCode(int r, int g, int b, char* buffer, size_t bufferSize) {
-	r = (r < 0) ? 0 : ((r > 255) ? 255 : r);
-	g = (g < 0) ? 0 : ((g > 255) ? 255 : g);
-	b = (b < 0) ? 0 : ((b > 255) ? 255 : b);
 
-	sprintf_s(buffer, bufferSize, "[UIColor colorWithRed:%.3f  green:%.3f  blue:%.3f  alpha:1.0]",
-	          (float)r / 255.0, (float)g / 255.0, (float)b / 255.0);
-}
 
 void HideAllPropertiesUIControls(void) {
 	for (idclist i = IDC_PROP_X; i < IDC_COUNT; i++)
@@ -231,7 +188,7 @@ void UpdatePropertiesPanelUI(iOSUIElement* element) {
 		SetWindowText(edits[IDE_PROP_CONPROC - IDE_PROP_TYPE].thing, element->linkproc);
 	}
 
-	if (wcscmp(element->type, TEXT("Label")) == 0) {
+	if (element->definition->hasAlignment) {
 		ShowWindow(GetDlgItem(hCodeOutputPanel, IDC_PROP_ALIGNMENT), SW_SHOW);
 		EnableWindow(edits[IDE_PROP_ALIGNMENT - IDE_PROP_TYPE].thing, TRUE);
 		ComboBox_SetCurSel(edits[IDE_PROP_ALIGNMENT - IDE_PROP_TYPE].thing, element->alignment);
@@ -314,157 +271,11 @@ void ReadPropertiesFromUI(iOSUIElement* element) {
 	if (wcscmp(element->type, TEXT("Button")) == 0) {
 		GetWindowText(edits[IDE_PROP_CONPROC - IDE_PROP_TYPE].thing, element->linkproc, _countof(element->linkproc));
 	}
-	if (wcscmp(element->type, TEXT("Label")) == 0) {
+	if (element->definition->hasAlignment) {
 		element->alignment = ComboBox_GetCurSel(edits[IDE_PROP_ALIGNMENT - IDE_PROP_TYPE].thing);
 	}
 
 }
-
-
-// Button functions
-void DrawButton(HDC hdc, iOSUIElement* element) {
-	HMODULE g_hBuilderCoreDll = NULL;
-	g_hBuilderCoreDll = LoadLibraryW(L"libbuidll.dll");
-	if (g_hBuilderCoreDll == NULL)
-		MessageBeep(MB_ICONERROR);
-	void (*pfn)(HDC hdc, iOSUIElement * element);
-	pfn = (void *)GetProcAddress(g_hBuilderCoreDll, "DrawButton");
-	if (!pfn)
-		MessageBeep(MB_ICONERROR);
-	pfn(hdc, element);
-	FreeLibrary(g_hBuilderCoreDll);
-
-}
-
-void GenerateObjCButtonCode(WCHAR* codeBuffer, size_t bufferSize, iOSUIElement * element) {
-	HMODULE g_hBuilderCoreDll = NULL;
-	g_hBuilderCoreDll = LoadLibraryW(L"libbuidll.dll");
-	if (g_hBuilderCoreDll == NULL)
-		MessageBeep(MB_ICONERROR);
-	void (*pfn)(WCHAR * codeBuffer, size_t bufferSize, iOSUIElement * element);
-	pfn = (void *)GetProcAddress(g_hBuilderCoreDll, "GenerateObjCButtonCode");
-	if (!pfn)
-		MessageBeep(MB_ICONERROR);
-	pfn(codeBuffer, bufferSize, element);
-	FreeLibrary(g_hBuilderCoreDll);
-
-}
-
-// Text Field functions
-void DrawTextField(HDC hdc, iOSUIElement* element) {
-	HMODULE g_hBuilderCoreDll = NULL;
-	g_hBuilderCoreDll = LoadLibraryW(L"libbuidll.dll");
-	if (g_hBuilderCoreDll == NULL)
-		MessageBeep(MB_ICONERROR);
-	void (*pfn)(HDC hdc, iOSUIElement * element);
-	pfn = (void *)GetProcAddress(g_hBuilderCoreDll, "DrawTextField");
-	if (!pfn)
-		MessageBeep(MB_ICONERROR);
-	pfn(hdc,  element);
-	FreeLibrary(g_hBuilderCoreDll);
-
-}
-void GenerateObjCTextFieldCode(WCHAR* codeBuffer, size_t bufferSize, iOSUIElement * element) {
-
-	HMODULE g_hBuilderCoreDll = NULL;
-	g_hBuilderCoreDll = LoadLibraryW(L"libbuidll.dll");
-	if (g_hBuilderCoreDll == NULL)
-		MessageBeep(MB_ICONERROR);
-	void (*pfn)(WCHAR * codeBuffer, size_t bufferSize, iOSUIElement * element);
-	pfn = (void *)GetProcAddress(g_hBuilderCoreDll, "GenerateObjCTextFieldCode");
-	if (!pfn)
-		MessageBeep(MB_ICONERROR);
-	pfn(codeBuffer, bufferSize, element);
-	FreeLibrary(g_hBuilderCoreDll);
-
-}
-
-
-// Table View functions
-void DrawTableView(HDC hdc, iOSUIElement* element) {
-	HMODULE g_hBuilderCoreDll = NULL;
-	g_hBuilderCoreDll = LoadLibraryW(L"libbuidll.dll");
-	if (g_hBuilderCoreDll == NULL)
-		MessageBeep(MB_ICONERROR);
-	void (*pfn)(HDC hdc, iOSUIElement * element);
-	pfn = (void *)GetProcAddress(g_hBuilderCoreDll, "DrawTableView");
-	if (!pfn)
-		MessageBeep(MB_ICONERROR);
-	pfn(hdc, element);
-	FreeLibrary(g_hBuilderCoreDll);
-
-}
-void GenerateObjCTableViewCode(WCHAR* codeBuffer, size_t bufferSize, iOSUIElement * element) {
-	HMODULE g_hBuilderCoreDll = NULL;
-	g_hBuilderCoreDll = LoadLibraryW(L"libbuidll.dll");
-	if (g_hBuilderCoreDll == NULL)
-		MessageBeep(MB_ICONERROR);
-	void (*pfn)(WCHAR * codeBuffer, size_t bufferSize, iOSUIElement * element);
-	pfn = (void *)GetProcAddress(g_hBuilderCoreDll, "GenerateObjCTableViewCode");
-	if (!pfn)
-		MessageBeep(MB_ICONERROR);
-	pfn(codeBuffer, bufferSize, element);
-	FreeLibrary(g_hBuilderCoreDll);
-
-}
-
-// Slider functions
-/*
-void DrawSlider(HDC hdc, iOSUIElement* element) {
-	HMODULE g_hBuilderCoreDll = NULL;
-		g_hBuilderCoreDll = LoadLibraryW(L"libbuidll.dll");
-		if (g_hBuilderCoreDll == NULL)
-			MessageBeep(MB_ICONERROR);
-		void (*pfn)(HDC hdc, iOSUIElement* element);
-		pfn = (void *)GetProcAddress(g_hBuilderCoreDll, "DrawSlider");
-		if (!pfn)
-			MessageBeep(MB_ICONERROR);
-		pfn(hdc,  element);
-	FreeLibrary(g_hBuilderCoreDll);
-
-}
-void GenerateObjCSliderCode(WCHAR* codeBuffer, size_t bufferSize, iOSUIElement* element) {
-	HMODULE g_hBuilderCoreDll = NULL;
-		g_hBuilderCoreDll = LoadLibraryW(L"libbuidll.dll");
-		if (g_hBuilderCoreDll == NULL)
-			MessageBeep(MB_ICONERROR);
-		void (*pfn)(WCHAR * codeBuffer, size_t bufferSize, iOSUIElement * element);
-		pfn = (void *)GetProcAddress(g_hBuilderCoreDll, "GenerateObjCSliderCode");
-		if (!pfn)
-			MessageBeep(MB_ICONERROR);
-		pfn(codeBuffer, bufferSize, element);
-			FreeLibrary(g_hBuilderCoreDll);
-
-}*/
-
-// Label functions
-void DrawLabel(HDC hdc, iOSUIElement* element) {
-	HMODULE g_hBuilderCoreDll = NULL;
-	g_hBuilderCoreDll = LoadLibraryW(L"libbuidll.dll");
-	if (g_hBuilderCoreDll == NULL)
-		MessageBeep(MB_ICONERROR);
-	void (*pfn)(HDC hdc, iOSUIElement * element);
-	pfn = (void *)GetProcAddress(g_hBuilderCoreDll, "DrawLabel");
-	if (!pfn)
-		MessageBeep(MB_ICONERROR);
-	pfn(hdc, element);
-	FreeLibrary(g_hBuilderCoreDll);
-
-}
-void GenerateObjCLabelCode(WCHAR* codeBuffer, size_t bufferSize, iOSUIElement* element) {
-	HMODULE g_hBuilderCoreDll = NULL;
-	g_hBuilderCoreDll = LoadLibraryW(L"libbuidll.dll");
-	if (g_hBuilderCoreDll == NULL)
-		MessageBeep(MB_ICONERROR);
-	void (*pfn)(WCHAR * codeBuffer, size_t bufferSize, iOSUIElement * element);
-	pfn = (void *)GetProcAddress(g_hBuilderCoreDll, "GenerateObjCLabelCode");
-	if (!pfn)
-		MessageBeep(MB_ICONERROR);
-	pfn(codeBuffer, bufferSize, element);
-	FreeLibrary(g_hBuilderCoreDll);
-
-}
-
 
 // Updates the property panel display
 void UpdatePropertiesPanel(void) {

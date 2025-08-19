@@ -1,0 +1,5 @@
+Button,1101,DrawButton,GenerateObjCButtonCode,50,50,130,50,BUTTON,123,123,123,255,255,255,24,0,0,0,0,1,1,1,1,0,0,0,0,0
+TextField,1102,DrawTextField,GenerateObjCTextFieldCode,50,50,240,50,搜索框,100,100,100,255,255,255,24,0,0,0,0,1,1,1,1,0,0,0,0,0
+TableView,1103,DrawTableView,GenerateObjCTableViewCode,50,50,130,130," ",233,233,233,255,255,255,24,0,0,0,44,0,0,0,0,0,0,0,1,0
+Label,1104,DrawLabel,GenerateObjCLabelCode,50,50,100,30,label,100,100,100,255,255,255,24,0,0,0,0,1,1,1,1,0,0,0,0,1
+

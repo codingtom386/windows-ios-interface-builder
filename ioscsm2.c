@@ -2,22 +2,9 @@
 #define _UNICODE    // Force Unicode for C Runtime Library
 
 #include "IOSBUILDER.h"
-#include <commdlg.h> // Common Dialogs
 
-
-// Explicitly declare global variables used from IOSBUILDER.c
-// This helps resolve 'undeclared' errors in some compiler setups,
-// even if they are already extern in the included header.
-#define ID_TOOLBOX_VSCROLL 500
-#define IDI_ICON1 2500
-
-// Menu Command IDs
-#define IDM_FILE_EXIT       40001
-#define IDM_HELP_ABOUT      40002
-#define IDM_FILE_SAVE		40003
-
-// 全局变量，用于存储自定义滚动条的句柄
-HWND g_hToolboxScrollbar;
+HBRUSH codeeditback;
+HWND ctitle = NULL;
 // --- Global variables for tool panel scrolling ---
 static HWND g_hToolButtons[100];
 static int g_numToolButtons = 0;
@@ -34,63 +21,121 @@ static int toolPanelMaxScroll = 0;
 int currentButtonY = 50;
 
 void DeleteSelectedElement();
+void CopySelectedElement(HWND hwnd);
 
-HBRUSH butbackbr = NULL;
+//HBRUSH butbackbr = NULL;
 
 int g_scrollPos = 0;
+FILE* mapping = NULL;
+HMODULE g_hBuilderCoreDll = NULL;
+void inittool() {
+	char type[100];
+	char draw[75];
+	char gen[75];
+	char text[30];
+	int count = 0;
+	mapping = fopen("dllmap.map", "r");
+	const char* form = "%100[^,],%d,%75[^,],%75[^,],%d,%d,%d,%d,%30[^,],%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d";
+	while (fscanf(mapping, form, type,
+	              &g_elementDefinitions[count].toolButtonId,
+	              draw,
+	              gen,
+	              &g_elementDefinitions[count].Defaults.defaultx,
+	              &g_elementDefinitions[count].Defaults.defaulty,
+	              &g_elementDefinitions[count].Defaults.defaultWidth,
+	              &g_elementDefinitions[count].Defaults.defaultHeight,
+	              text,
+	              &g_elementDefinitions[count].Defaults.defaultbr,
+	              &g_elementDefinitions[count].Defaults.defaultbg,
+	              &g_elementDefinitions[count].Defaults.defaultbb,
+	              &g_elementDefinitions[count].Defaults.defaulttr,
+	              &g_elementDefinitions[count].Defaults.defaulttg,
+	              &g_elementDefinitions[count].Defaults.defaulttb,
+	              &g_elementDefinitions[count].Defaults.defaultfontsize,
+	              &g_elementDefinitions[count].Defaults.defaultminval,
+	              &g_elementDefinitions[count].Defaults.defaultmaxval,
+	              &g_elementDefinitions[count].Defaults.defaultcurrval,
+	              &g_elementDefinitions[count].Defaults.defaultrowheight,
+	              &g_elementDefinitions[count].hasText,
+	              &g_elementDefinitions[count].hasBgColor,
+	              &g_elementDefinitions[count].hasTextColor,
+	              &g_elementDefinitions[count].hasFontSize,
+	              &g_elementDefinitions[count].hasMinValue,
+	              &g_elementDefinitions[count].hasMaxValue,
+	              &g_elementDefinitions[count].hasCurrentValue,
+	              &g_elementDefinitions[count].hasRowHeight,
+	              &g_elementDefinitions[count].hasAlignment) == 29) {
+		MultiByteToWideChar(CP_UTF8, 0, type, -1, g_elementDefinitions[count].typeName, _countof(g_elementDefinitions[count].typeName));
+		MessageBoxA(NULL, "load success", NULL, MB_OK);
+		g_elementDefinitions[count].drawFunc = (void *)GetProcAddress(g_hBuilderCoreDll, draw);
+		if (!g_elementDefinitions[count].drawFunc)
+			MessageBoxA(NULL, "drawFunc load error", NULL, MB_ICONERROR);
+		g_elementDefinitions[count].generateCodeFunc = (void *)GetProcAddress(g_hBuilderCoreDll, gen);
+		if (!g_elementDefinitions[count].generateCodeFunc)
+			MessageBoxA(NULL, "genFunc load error", NULL, MB_ICONERROR);
 
+		g_elementDefinitions[count].initDefaultDataFunc = InitDefaultData;
+		MultiByteToWideChar(CP_UTF8, 0, text, -1, g_elementDefinitions[count].Defaults.defaultext, _countof(g_elementDefinitions[count].Defaults.defaultext));
+
+		count++;
+
+
+	}
+	g_numElementDefinitions = count;
+}
 void SaveFile(HWND hwnd) {
-    OPENFILENAME ofn;
-    wchar_t szFile[MAX_PATH] = L"";
+	OPENFILENAME ofn;
+	wchar_t szFile[MAX_PATH] = L"";
 
-    ZeroMemory(&ofn, sizeof(ofn));
+	ZeroMemory(&ofn, sizeof(ofn));
 
-    ofn.lStructSize = sizeof(ofn);
-    ofn.hwndOwner = hwnd;
-    ofn.lpstrFile = szFile;
-    ofn.nMaxFile = sizeof(szFile);
-    ofn.lpstrFilter = L"objective-c文件(*.m)\0*.m\0所有文件 (*.*)\0*.*\0";
-    ofn.nFilterIndex = 1;
-    ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT;
-    ofn.lpstrDefExt = L"m";
+	ofn.lStructSize = sizeof(ofn);
+	ofn.hwndOwner = hwnd;
+	ofn.lpstrFile = szFile;
+	ofn.nMaxFile = sizeof(szFile);
+	ofn.lpstrFilter = L"objective-c文件(*.m)\0*.m\0所有文件 (*.*)\0*.*\0";
+	ofn.nFilterIndex = 1;
+	ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT;
+	ofn.lpstrDefExt = L"m";
 
-    if (GetSaveFileName(&ofn) == TRUE) {
-        HANDLE hFile = CreateFile(
-                           ofn.lpstrFile,
-                           GENERIC_WRITE,
-                           0,
-                           NULL,
-                           CREATE_ALWAYS,
-                           FILE_ATTRIBUTE_NORMAL,
-                           NULL
-                       );
+	if (GetSaveFileName(&ofn) == TRUE) {
+		HANDLE hFile = CreateFile(
+		                   ofn.lpstrFile,
+		                   GENERIC_WRITE,
+		                   0,
+		                   NULL,
+		                   CREATE_ALWAYS,
+		                   FILE_ATTRIBUTE_NORMAL,
+		                   NULL
+		               );
 
-        if (hFile != INVALID_HANDLE_VALUE) {
-            // 写入 UTF-8 BOM
-            unsigned char bom[] = {0xEF, 0xBB, 0xBF};
-            DWORD dwBytesWritten = 0;
-            WriteFile(hFile, bom, sizeof(bom), &dwBytesWritten, NULL);
+		if (hFile != INVALID_HANDLE_VALUE) {
+			// 写入 UTF-8 BOM
+			unsigned char bom[] = {0xEF, 0xBB, 0xBF};
+			DWORD dwBytesWritten = 0;
+			WriteFile(hFile, bom, sizeof(bom), &dwBytesWritten, NULL);
 
-            // 将 Unicode 字符串转换为 UTF-8
-            int nBytes = WideCharToMultiByte(CP_UTF8, 0, generatedCodeBuffer, -1, NULL, 0, NULL, NULL);
-            char* pUTF8 = (char*)malloc(nBytes);
-            if (pUTF8) {
-                WideCharToMultiByte(CP_UTF8, 0, generatedCodeBuffer, -1, pUTF8, nBytes, NULL, NULL);
-                WriteFile(hFile, pUTF8, nBytes - 1, &dwBytesWritten, NULL); // nBytes-1 是为了不写入终止符
-                free(pUTF8);
-            }
-            
-            MessageBox(hwnd, L"文件已成功保存！", L"保存", MB_OK | MB_ICONINFORMATION);
-            CloseHandle(hFile);
-        } else {
-            MessageBox(hwnd, L"无法创建文件句柄。", L"错误", MB_OK | MB_ICONERROR);
-        }
-    }
+			// 将 Unicode 字符串转换为 UTF-8
+			int nBytes = WideCharToMultiByte(CP_UTF8, 0, generatedCodeBuffer, -1, NULL, 0, NULL, NULL);
+			char* pUTF8 = (char*)malloc(nBytes);
+			if (pUTF8) {
+				WideCharToMultiByte(CP_UTF8, 0, generatedCodeBuffer, -1, pUTF8, nBytes, NULL, NULL);
+				WriteFile(hFile, pUTF8, nBytes - 1, &dwBytesWritten, NULL); // nBytes-1 是为了不写入终止符
+				free(pUTF8);
+			}
+
+			MessageBox(hwnd, L"文件已成功保存！", L"保存", MB_OK | MB_ICONINFORMATION);
+			CloseHandle(hFile);
+		} else {
+			MessageBox(hwnd, L"无法创建文件句柄。", L"错误", MB_OK | MB_ICONERROR);
+		}
+	}
 }
 HMENU CreateMainMenu(void) {
 	HMENU hMenu = CreateMenu();
 	HMENU hFilePopup = CreatePopupMenu();
 	HMENU hHelpPopup = CreatePopupMenu();
+	HMENU hEditPopup = CreatePopupMenu();
 
 	// 创建“文件”菜单
 	AppendMenu(hFilePopup, MF_STRING, IDM_FILE_SAVE, L"&保存");
@@ -99,9 +144,12 @@ HMENU CreateMainMenu(void) {
 
 	// 创建“帮助”菜单
 	AppendMenu(hHelpPopup, MF_STRING, IDM_HELP_ABOUT, L"&关于...");
-
+	//create edit menu
+	AppendMenu(hEditPopup, MF_STRING, IDM_DELETE_ELEMENT, L"&删除");
+	AppendMenu(hEditPopup, MF_STRING, IDM_COPY_ELEMENT, L"&复制");
 	// 将子菜单附加到主菜单
 	AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hFilePopup, L"&文件");
+	AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hEditPopup, L"&编辑");
 	AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hHelpPopup, L"&帮助");
 
 	return hMenu;
@@ -179,12 +227,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	MSG msg;
 
-	/*LoadDarkModeApis();
-
-	// 如果函数加载成功，强制启用暗黑模式
-	if (pSetPreferredAppMode) {
-		pSetPreferredAppMode(PreferredAppMode_ForceDark);
-	}*/
+	INITCOMMONCONTROLSEX iccex;
+	iccex.dwSize = sizeof(INITCOMMONCONTROLSEX);
+	iccex.dwICC  = ICC_STANDARD_CLASSES;
+	InitCommonControlsEx(&iccex);
 
 	// 1. Register main window class
 	wc.style = CS_HREDRAW | CS_VREDRAW;
@@ -192,7 +238,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	wc.lpfnWndProc   = WndProc;
 	wc.hInstance     = hInstance;
 	wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
-	wc.hIcon = LoadIcon(wc.hInstance, MAKEINTRESOURCE (IDI_ICON1));
 	wc.hbrBackground = CreateSolidBrush(RGB(17, 17, 17)); // Main window background color
 	wc.lpszClassName = MAIN_WINDOW_CLASS_NAME;
 
@@ -252,7 +297,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	                    MAIN_WINDOW_TITLE,
 	                    WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, // WS_CLIPCHILDREN prevents parent from drawing over children
 	                    CW_USEDEFAULT, CW_USEDEFAULT,
-	                    1500, 982,                          // Initial window size
+	                    1700, 982,                          // Initial window size
 	                    NULL,
 	                    hMainMenu,
 	                    hInstance,
@@ -306,35 +351,49 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	                       hInstance,
 	                       NULL
 	                   );
+	ctitle = CreateWindowEx(0, TEXT("STATIC"), TEXT("生成的 Objective-C 代码"), WS_CHILD | WS_VISIBLE | SS_CENTER,
+	                        0, 0, 0, 0, hMainWnd, (HMENU)IDC_CODE_TITLE_STATIC, hInstance, NULL);
 
-// ... 在创建其他子窗口之后，创建分割条
-	// Create the background brush for the properties panel in WinMain,
-	// this brush is specifically used in WM_CTLCOLORSTATIC/EDIT of CodePropertiesPanelProc
+	g_hCodeEdit = CreateWindowEx(
+	                  0,
+	                  TEXT("EDIT"),
+	                  TEXT("// 代码将在这里生成，并调用你的 csm 工厂方法...\r\n// 例如：[UIViewController createButtonWithFrame:...]\r\n\r\n"),
+	                  WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_HSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | ES_AUTOHSCROLL,
+	                  0, 0,
+	                  0, 0,
+	                  hMainWnd,
+	                  (HMENU)IDC_CODE_DISPLAY_EDIT,
+	                  hInstance,
+	                  NULL
+	              );
+	SetWindowTheme(g_hCodeEdit, L"DarkMode_Explorer", nullptr);
+
 	g_hbrPropertiesPanelBackground = CreateSolidBrush(RGB(30, 30, 30));
 	if (g_hbrPropertiesPanelBackground == NULL) {
 		MessageBox(NULL, TEXT("属性面板背景画刷创建失败!"), TEXT("错误"), MB_ICONERROR | MB_OK);
 		return 0;
 	}
-	butbackbr = CreateSolidBrush(RGB(20, 20, 20));
+	//butbackbr = CreateSolidBrush(RGB(20, 20, 20));
+	codeeditback = CreateSolidBrush(RGB(60, 60, 60));
 	SetWindowTheme(hCodeOutputPanel, L"DarkMode_Explorer", nullptr);
 	SetWindowTheme(hToolboxPanel, L"DarkMode_Explorer", nullptr);
-	// 7. Add "draggable" control buttons to the toolbox panel (currently simulated by clicks)
-	// Store HWNDs and original Y positions for scrolling
+
 	int currentButtonY = 50;
-	const int buttonHeight = 40;
+	const int buttonHeight = 60;
 	const int buttonSpacing = BUTTON_SPACING; // Using the macro now
-	const int buttonWidth = 160;
+	const int buttonWidth = 180;
 	const int buttonX = 29; // This is the client X position relative to hToolboxPanel
+	g_hBuilderCoreDll = LoadLibraryW(L"libbuidll.dll");
 
 	// For each button, create it and store its HWND and original Y position
-
+	inittool();
 	g_numToolButtons = 0;
 	for (int i = 0; i < g_numElementDefinitions; ++i) {
 		g_hToolButtons[g_numToolButtons] = CreateWindowEx(
-		                                       WS_EX_CLIENTEDGE,
+		                                       0,
 		                                       TEXT("BUTTON"),
 		                                       g_elementDefinitions[i].typeName,
-		                                       WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+		                                       WS_CHILD  | WS_VISIBLE | BS_OWNERDRAW,
 		                                       buttonX, currentButtonY,
 		                                       buttonWidth, buttonHeight,
 		                                       hToolboxPanel,
@@ -350,10 +409,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		currentButtonY += buttonHeight + buttonSpacing;
 		g_numToolButtons++;
 
-
 	}
 
-
+	HFONT hFont = CreateFont(-73, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+	                         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+	                         DEFAULT_PITCH | FF_SWISS, TEXT("Segoe UI"));
 
 	// 8. Display and update main window
 	ShowWindow(hMainWnd, nCmdShow);
@@ -384,6 +444,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	switch (msg) {
+		case WM_CTLCOLORSTATIC:
+		case WM_CTLCOLOREDIT: {
+			HDC hdc = (HDC)wParam;
+			SetTextColor(hdc, RGB(255, 255, 255));
+			SetBkColor(hdc, RGB(60, 60, 60));
+			return (INT_PTR)codeeditback;
+		}
+
 		case WM_COMMAND: {
 			int wmId = LOWORD(wParam);
 			HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE);
@@ -442,6 +510,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 				MessageBox(NULL, TEXT("ios builder"), TEXT("about"), MB_OK);
 			if (wmId == IDM_FILE_SAVE)
 				SaveFile(hwnd);
+			if (wmId == IDM_COPY_ELEMENT)
+				CopySelectedElement(hwnd);
+			if (HIWORD(wParam) == CBN_SELCHANGE) {
+				// 强制将焦点移出下拉框
+				SetFocus(hwnd);
+			}
 
 			break;
 		}
@@ -452,15 +526,18 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			int newHeight = rc.bottom - rc.top;
 
 			int toolboxWidth = 250;
-			int codePanelWidth = 550;
+			int codePanelWidth = 450;
 			int spacing = 10;
 
 			int canvasX = toolboxWidth + spacing;
-			int codePanelX = newWidth - codePanelWidth - spacing;
+			int codePanelX = newWidth - codePanelWidth - spacing - 500 - spacing * 2;
 
+			int codeeditx = newWidth - 500 - spacing;
 
 			MoveWindow(hToolboxPanel, spacing, spacing, toolboxWidth, newHeight - (2 * spacing), TRUE);
 			MoveWindow(hCodeOutputPanel, codePanelX, spacing, codePanelWidth, newHeight - (2 * spacing), TRUE);
+			MoveWindow(g_hCodeEdit, codeeditx, spacing + 20, 500, newHeight - 20 - (2 * spacing), TRUE);
+			MoveWindow(ctitle, codeeditx, spacing, 470, 20, TRUE);
 
 			// Fixed canvas dimensions
 			int finalCanvasWidth = CANVAS_INITIAL_WIDTH;
@@ -478,7 +555,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			if (centeredX < canvasX) centeredX = canvasX;
 			if (centeredY < spacing) centeredY = spacing;
 
-			MoveWindow(g_hCanvasPanel, centeredX, centeredY, finalCanvasWidth, finalCanvasHeight, TRUE);
+			MoveWindow(g_hCanvasPanel, spacing + toolboxWidth + spacing, centeredY, finalCanvasWidth, finalCanvasHeight, TRUE);
 
 
 
@@ -486,6 +563,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			// We just need to ensure the canvas is redrawn.
 			InvalidateRect(g_hCanvasPanel, NULL, TRUE);
 			InvalidateRect(hToolboxPanel, NULL, TRUE);
+			InvalidateRect(ctitle, NULL, TRUE);
+			InvalidateRect(g_hCodeEdit, NULL, TRUE);
 			UpdatePropertiesPanel(); // Update properties panel to reflect current state (even if no change)
 			RegenerateAllObjCCode(); // Regenerate code (might not change if elements aren't scaled, but good practice)
 
@@ -496,6 +575,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 				DeleteObject(g_hbrPropertiesPanelBackground);
 				g_hbrPropertiesPanelBackground = NULL;
 			}
+			//DeleteObject(butbackbr);
+			//butbackbr = NULL;
+			DeleteObject(codeeditback);
+			codeeditback = NULL;
+
 			PostQuitMessage(0);
 			break;
 		}
@@ -517,7 +601,6 @@ LRESULT CALLBACK CanvasPanelProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 		case WM_PAINT: {
 			PAINTSTRUCT ps;
 			HDC hdc = BeginPaint(hwnd, &ps);
-
 			for (int i = 0; i < g_iOSUIElementCount; i++) {
 				iOSUIElement *element = &g_iOSUIElements[i];
 				// Use function pointer to call the corresponding drawing function
@@ -761,28 +844,28 @@ LRESULT CALLBACK CanvasPanelProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 				return TRUE;
 			}
 			return DefWindowProc(hwnd, msg, wParam, lParam);
-		case WM_RBUTTONDOWN: {
-			// 获取鼠标点击的坐标
-			int mouseX = LOWORD(lParam);
-			int mouseY = HIWORD(lParam);
+		/*		case WM_RBUTTONDOWN: {
+					// 获取鼠标点击的坐标
+					int mouseX = LOWORD(lParam);
+					int mouseY = HIWORD(lParam);
 
-			// 检查是否有元素被选中
-			if (g_selectedElementIndex != -1) {
-				// 创建并显示右键菜单
-				HMENU hPopupMenu = CreatePopupMenu();
-				AppendMenu(hPopupMenu, MF_STRING, IDM_DELETE_ELEMENT, TEXT("删除"));
+					// 检查是否有元素被选中
+					if (g_selectedElementIndex != -1) {
+						// 创建并显示右键菜单
+						HMENU hPopupMenu = CreatePopupMenu();
+						AppendMenu(hPopupMenu, MF_STRING, IDM_DELETE_ELEMENT, TEXT("删除"));
 
-				// 将客户端坐标转换为屏幕坐标
-				POINT pt;
-				pt.x = mouseX;
-				pt.y = mouseY;
-				ClientToScreen(g_hCanvasPanel, &pt);
+						// 将客户端坐标转换为屏幕坐标
+						POINT pt;
+						pt.x = mouseX;
+						pt.y = mouseY;
+						ClientToScreen(g_hCanvasPanel, &pt);
 
-				TrackPopupMenu(hPopupMenu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, GetParent(hwnd), NULL);
-				DestroyMenu(hPopupMenu);
-			}
-			break;
-		}
+						TrackPopupMenu(hPopupMenu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, GetParent(hwnd), NULL);
+						DestroyMenu(hPopupMenu);
+					}
+					break;
+				}*/
 		default:
 			return DefWindowProc(hwnd, msg, wParam, lParam);
 	}
@@ -793,20 +876,50 @@ LRESULT CALLBACK toolpanelproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
 	HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtr(GetParent(hwnd), GWLP_HINSTANCE);
 
 	switch (msg) {
-		case WM_CTLCOLORBTN:
+		case WM_DRAWITEM: {
+			LPDRAWITEMSTRUCT dis = (LPDRAWITEMSTRUCT)lParam;
+			if (dis->CtlType == ODT_BUTTON) {
+				BOOL isHovered = (dis->itemState & ODS_HOTLIGHT);
+				BOOL isPressed = (dis->itemState & ODS_SELECTED);
 
-			HWND hbn = (HWND)lParam;
-			HDC hdc = (HDC)wParam;
-			RECT rc;
-			TCHAR text[64];
+				// 背景色
+				COLORREF bgColor = isPressed ? RGB(65, 65, 65) :
+				                   isHovered ? RGB(55, 55, 65) : RGB(40, 40, 45);
+				HBRUSH br = CreateSolidBrush(bgColor);
+				HPEN pen = CreatePen(PS_SOLID, 1, RGB(90, 90, 100));
+				HBRUSH oldBr = SelectObject(dis->hDC, br);
+				HPEN oldPen = SelectObject(dis->hDC, pen);
 
-			GetWindowText(hbn, text, 63);
-			GetClientRect(hbn, &rc);
-			SetTextColor(hdc, RGB(255, 255, 255));
-			SetBkMode(hdc, TRANSPARENT);
-			DrawText(hdc, text, _tcslen(text), &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-			return (INT_PTR)butbackbr;
-			break;
+				HBRUSH hFullBrush = CreateSolidBrush(bgColor);
+				FillRect(dis->hDC, &dis->rcItem, hFullBrush);
+				DeleteObject(hFullBrush);
+
+				// 圆角矩形
+				RoundRect(dis->hDC, dis->rcItem.left, dis->rcItem.top,
+				          dis->rcItem.right, dis->rcItem.bottom, 8, 8);
+
+				SelectObject(dis->hDC, oldBr);
+				SelectObject(dis->hDC, oldPen);
+				DeleteObject(br);
+				DeleteObject(pen);
+
+				// 文字
+				SetBkMode(dis->hDC, TRANSPARENT);
+				SetTextColor(dis->hDC, RGB(230, 230, 230));
+
+				// 获取按钮文字
+				WCHAR text[128];
+				GetWindowText(dis->hwndItem, text, 128);
+				HFONT hFont = CreateFont(32, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, TEXT("Arial"));
+				HFONT hOldFont = SelectObject(dis->hDC, hFont);
+				DrawText(dis->hDC, text, -1, (LPRECT)&dis->rcItem,
+				         DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+				SelectObject(dis->hDC, hOldFont);
+				DeleteObject(hFont);
+				return TRUE;
+			}
+		}
+
 		case WM_VSCROLL: {
 
 			int nScrollCode = LOWORD(wParam);
@@ -983,89 +1096,10 @@ LRESULT CALLBACK CodePropertiesPanelProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 
 
 
-			int currentY = propPanelStartY;
 			initprop(hwnd);
 			CreateWindowEx(0, TEXT("static"), TEXT("属性"), WS_CHILD | WS_VISIBLE | SS_CENTER,
-			               0, 430, 550, 20, hwnd, NULL, hInstance, NULL);
-			//CreateWindowEx(0, TEXT("STATIC"), TEXT("类型:"), WS_CHILD | WS_VISIBLE,
-			//  panelPadding, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_TYPE_LABEL, hInstance, NULL);
-			/*g_hPropTypeStatic = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("STATIC"), TEXT("无选中"), WS_CHILD | WS_VISIBLE | SS_CENTER,
-			                                   panelPadding + labelWidth + colSpacing, currentY, longEditWidth, controlHeight, hwnd, (HMENU)IDC_PROP_TYPE_STATIC, hInstance, NULL);
-			currentY += rowSpacing;
+			               0, 0, 450, 20, hwnd, NULL, hInstance, NULL);
 
-			CreateWindowEx(0, TEXT("STATIC"), TEXT("X:"), WS_CHILD | WS_VISIBLE,
-			               panelPadding, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_X_LABEL, hInstance, NULL);
-			g_hPropXEdit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
-			                              panelPadding + labelWidth + colSpacing, currentY, editWidth, controlHeight, hwnd, (HMENU)IDC_PROP_X_EDIT, hInstance, NULL);
-
-			CreateWindowEx(0, TEXT("STATIC"), TEXT("Y:"), WS_CHILD | WS_VISIBLE,
-			               panelPadding + labelWidth + colSpacing + editWidth + colSpacing, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_Y_LABEL, hInstance, NULL);
-			g_hPropYEdit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
-			                              panelPadding + labelWidth + colSpacing + editWidth + colSpacing + labelWidth + colSpacing, currentY, editWidth, controlHeight, hwnd, (HMENU)IDC_PROP_Y_EDIT, hInstance, NULL);
-			currentY += rowSpacing;
-
-			CreateWindowEx(0, TEXT("STATIC"), TEXT("宽度:"), WS_CHILD | WS_VISIBLE,
-			               panelPadding, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_WIDTH_LABEL, hInstance, NULL);
-			g_hPropWidthEdit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
-			                                  panelPadding + labelWidth + colSpacing, currentY, editWidth, controlHeight, hwnd, (HMENU)IDC_PROP_WIDTH_EDIT, hInstance, NULL);
-
-			CreateWindowEx(0, TEXT("STATIC"), TEXT("高度:"), WS_CHILD | WS_VISIBLE,
-			               panelPadding + labelWidth + colSpacing + editWidth + colSpacing, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_HEIGHT_LABEL, hInstance, NULL);
-			g_hPropHeightEdit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
-			                                   panelPadding + labelWidth + colSpacing + editWidth + colSpacing + labelWidth + colSpacing, currentY, editWidth, controlHeight, hwnd, (HMENU)IDC_PROP_HEIGHT_EDIT, hInstance, NULL);
-			currentY += rowSpacing;
-
-			CreateWindowEx(0, TEXT("STATIC"), TEXT("文本:"), WS_CHILD | WS_VISIBLE,
-			               panelPadding, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_TEXT_LABEL, hInstance, NULL);
-			g_hPropTextEdit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL,
-			                                 panelPadding + labelWidth + colSpacing, currentY, longEditWidth, controlHeight, hwnd, (HMENU)IDC_PROP_TEXT_EDIT, hInstance, NULL);
-			currentY += rowSpacing;
-
-			CreateWindowEx(0, TEXT("STATIC"), TEXT("背景色:"), WS_CHILD | WS_VISIBLE,
-			               panelPadding, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_BG_R_LABEL, hInstance, NULL);
-			g_hPropBgR_Edit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
-			                                 panelPadding + labelWidth + colSpacing, currentY, colorEditWidth, controlHeight, hwnd, (HMENU)IDC_PROP_BG_R_EDIT, hInstance, NULL);
-			g_hPropBgG_Edit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
-			                                 panelPadding + labelWidth + colSpacing + colorEditWidth + colSpacing, currentY, colorEditWidth, controlHeight, hwnd, (HMENU)IDC_PROP_BG_G_EDIT, hInstance, NULL);
-			g_hPropBgB_Edit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
-			                                 panelPadding + labelWidth + colSpacing + (colorEditWidth + colSpacing) * 2, currentY, colorEditWidth, controlHeight, hwnd, (HMENU)IDC_PROP_BG_B_EDIT, hInstance, NULL);
-			currentY += rowSpacing;
-
-			CreateWindowEx(0, TEXT("STATIC"), TEXT("文本色:"), WS_CHILD | WS_VISIBLE,
-			               panelPadding, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_TEXT_R_LABEL, hInstance, NULL);
-			g_hPropTextR_Edit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
-			                                   panelPadding + labelWidth + colSpacing, currentY, colorEditWidth, controlHeight, hwnd, (HMENU)IDC_PROP_TEXT_R_EDIT, hInstance, NULL);
-			g_hPropTextG_Edit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
-			                                   panelPadding + labelWidth + colSpacing + colorEditWidth + colSpacing, currentY, colorEditWidth, controlHeight, hwnd, (HMENU)IDC_PROP_TEXT_G_EDIT, hInstance, NULL);
-			g_hPropTextB_Edit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
-			                                   panelPadding + labelWidth + colSpacing + (colorEditWidth + colSpacing) * 2, currentY, colorEditWidth, controlHeight, hwnd, (HMENU)IDC_PROP_TEXT_B_EDIT, hInstance, NULL);
-			currentY += rowSpacing;
-
-			CreateWindowEx(0, TEXT("STATIC"), TEXT("字体大小:"), WS_CHILD | WS_VISIBLE,
-			               panelPadding, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_FONT_SIZE_LABEL, hInstance, NULL);
-			g_hPropFontSize_Edit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
-			                                      panelPadding + labelWidth + colSpacing, currentY, editWidth, controlHeight, hwnd, (HMENU)IDC_PROP_FONT_SIZE_EDIT, hInstance, NULL);
-			currentY += rowSpacing;
-
-			CreateWindowEx(0, TEXT("STATIC"), TEXT("最小值:"), WS_CHILD | WS_VISIBLE,
-			               panelPadding, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_MIN_VALUE_LABEL, hInstance, NULL);
-			g_hPropMinValue_Edit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
-			                                      panelPadding + labelWidth + colSpacing, currentY, editWidth, controlHeight, hwnd, (HMENU)IDC_PROP_MIN_VALUE_EDIT, hInstance, NULL);
-			currentY += rowSpacing;
-
-			CreateWindowEx(0, TEXT("STATIC"), TEXT("最大值:"), WS_CHILD | WS_VISIBLE,
-			               panelPadding, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_MAX_VALUE_LABEL, hInstance, NULL);
-			g_hPropMaxValue_Edit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
-			                                      panelPadding + labelWidth + colSpacing, currentY, editWidth, controlHeight, hwnd, (HMENU)IDC_PROP_MAX_VALUE_EDIT, hInstance, NULL);
-			currentY += rowSpacing;
-
-			CreateWindowEx(0, TEXT("STATIC"), TEXT("当前值:"), WS_CHILD | WS_VISIBLE,
-			               panelPadding, currentY, labelWidth, controlHeight, hwnd, (HMENU)IDC_PROP_CURRENT_VALUE_LABEL, hInstance, NULL);
-			g_hPropCurrentValue_Edit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
-			                           panelPadding + labelWidth + colSpacing, currentY, editWidth, controlHeight, hwnd, (HMENU)IDC_PROP_CURRENT_VALUE_EDIT, hInstance, NULL);
-			currentY += rowSpacing;
-
-			*/
 			g_hPropConfirmButton = CreateWindowEx(
 			                           0,
 			                           TEXT("BUTTON"),
@@ -1079,22 +1113,7 @@ LRESULT CALLBACK CodePropertiesPanelProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 			                           NULL
 			                       );
 
-			CreateWindowEx(0, TEXT("STATIC"), TEXT("生成的 Objective-C 代码"), WS_CHILD | WS_VISIBLE | SS_CENTER,
-			               0, 5, 550, 20, hwnd, NULL, hInstance, NULL);
 
-			g_hCodeEdit = CreateWindowEx(
-			                  0,
-			                  TEXT("EDIT"),
-			                  TEXT("// 代码将在这里生成，并调用你的 csm 工厂方法...\r\n// 例如：[UIViewController createButtonWithFrame:...]\r\n\r\n"),
-			                  WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_HSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | ES_AUTOHSCROLL,
-			                  panelPadding, 30,
-			                  550 - (2 * panelPadding), 400,
-			                  hwnd,
-			                  (HMENU)IDC_CODE_DISPLAY_EDIT,
-			                  hInstance,
-			                  NULL
-			              );
-			SetWindowTheme(g_hCodeEdit, L"DarkMode_Explorer", nullptr);
 
 			break;
 		}
@@ -1225,7 +1244,40 @@ LRESULT CALLBACK CodePropertiesPanelProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 	}
 	return 0;
 }
+void CopySelectedElement(HWND hwnd) {
+	if (g_selectedElementIndex == -1) {
+		MessageBox(hwnd, L"请先选择一个元素来复制。", L"警告", MB_OK | MB_ICONWARNING);
+		return;
+	}
 
+	if (g_iOSUIElementCount >= MAX_UI_ELEMENTS) {
+		MessageBox(hwnd, L"画布已满，无法复制更多元素。", L"警告", MB_OK | MB_ICONWARNING);
+		return;
+	}
+
+	// 获取被选中的元素
+	iOSUIElement* selectedElement = &g_iOSUIElements[g_selectedElementIndex];
+
+	// 创建新元素，使用memcpy复制所有数据
+	iOSUIElement* newElement = &g_iOSUIElements[g_iOSUIElementCount];
+	memcpy(newElement, selectedElement, sizeof(iOSUIElement));
+
+	// 为新元素分配一个新的ID
+	newElement->id = IDC_GENERATED_UI_BASE + g_iOSUIElementCount;
+
+	// 为了避免新元素与旧元素完全重叠，稍微偏移它的位置
+	newElement->x += 20;
+	newElement->y += 20;
+	newElement->original_x = newElement->x;
+	newElement->original_y = newElement->y;
+
+	g_iOSUIElementCount++;
+	g_selectedElementIndex = g_iOSUIElementCount - 1; // 选中新复制的元素
+
+	InvalidateRect(g_hCanvasPanel, NULL, TRUE); // 重绘画布
+	UpdatePropertiesPanel(); // 更新属性面板
+	RegenerateAllObjCCode(); // 重新生成代码
+}
 void DeleteSelectedElement() {
 
 	if (g_selectedElementIndex == -1) {
